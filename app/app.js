@@ -230,9 +230,11 @@ function renderSources() {
     t.all++;
     if (a.text) t.text++;
   }
-  const groups = [["be", "België"], ["brussel", "Brussel"], ["tech", "Tech"], ["world", "Wereld & Europa"]];
+  const groups = [["be", "België"], ["brussel", "Brussel"], ["tech", "Tech"], ["world", "Wereld & Europa"], ["web", "Gratis versies gevonden via zoeken"]];
   const lists = groups.map(([kind, name]) => {
-    const rows = d.sources.filter((s) => s.kind === kind).map((s) => {
+    const list = d.sources.filter((s) => s.kind === kind);
+    if (!list.length) return "";
+    const rows = list.map((s) => {
       const where = s.kind === "world" ? `<span class="badge">${esc(COUNTRY_NAMES[s.country] || s.country)}</span>` : "";
       const t = textStats[s.id];
       const status = !s.ok ? `<span class="n err">niet bereikbaar</span>`
@@ -244,8 +246,8 @@ function renderSources() {
   feed.innerHTML = `<section class="page">
     <h2>Hoe werkt Feed Me?</h2>
     <p>Feed Me verzamelt het nieuws van ${d.sources.length} bronnen en legt artikels over hetzelfde nieuwsfeit samen. Per verhaal zie je welke media erover berichten en uit welke hoek ze komen.</p>
-    <p><b>Meest neutrale versie.</b> Als meerdere media hetzelfde verhaal brengen, toont Feed Me de meest neutrale versie: liefst een centrumbron, met volledige tekst, in het Nederlands, met zo weinig mogelijk geladen woorden (zoals "schandalig", "chaos" of "slams") en geen opiniestuk. Onder elk artikel zie je hoe de andere media het brengen.</p>
-    <p><b>Lezen in de app.</b> Waar de site het toelaat, staat de volledige tekst in de app. Betaal- en loginmuren worden gerespecteerd; dan krijg je een link naar de site. De teksten zijn versleuteld met je wachtwoord, zodat enkel jij ze kan lezen.</p>
+    <p><b>Meest neutrale versie.</b> Als meerdere media hetzelfde verhaal brengen, toont Feed Me de meest neutrale versie: liefst een centrumbron, met volledige tekst, met zo weinig mogelijk geladen woorden (zoals "schandalig", "chaos" of "slams") en geen opiniestuk. Onder elk artikel zie je hoe de andere media het brengen.</p>
+    <p><b>Lezen in de app.</b> Waar de site het toelaat, staat de volledige tekst in de app. Betaal- en loginmuren worden gerespecteerd. Staat een verhaal enkel achter zo'n muur, dan zoekt Feed Me met de titel en samenvatting naar een ander medium dat hetzelfde nieuws gratis brengt. Lukt dat niet, dan krijg je een link naar de site. De teksten zijn versleuteld met je wachtwoord, zodat enkel jij ze kan lezen.</p>
     <p><b>Vertaling.</b> Franse en Engelse artikels worden automatisch en gratis naar het Nederlands vertaald (label <b>FR→NL</b>). De vertaling is niet perfect; het origineel kan je altijd bekijken.</p>
     <p>Een <b>blinde vlek</b> betekent dat een verhaal bijna enkel door linkse of enkel door rechtse media wordt gebracht. De politieke labels zijn een voorstel en kunnen aangepast worden in <code>fetcher/sources.py</code>.</p>
     <div class="legend">${LEANS.map((l) => `<span><i style="background:var(--${l})"></i>${LEAN_NAMES[l]}</span>`).join("")}</div>
@@ -273,6 +275,7 @@ function versionHtml(story, a, i, current) {
     : a.text ? "Geen geladen woorden gevonden" : "Toon niet gemeten (geen vrije tekst)";
   const badges = [
     i === 0 && story.articles.length > 1 ? `<span class="badge good">Meest neutraal</span>` : "",
+    a.found ? `<span class="badge">Gevonden via zoeken</span>` : "",
     a.opinion ? `<span class="badge">Opinie/analyse</span>` : "",
     a.live ? `<span class="badge">Liveblog</span>` : "",
     a.text ? `<span class="badge">Tekst in app</span>` : `<span class="badge">Enkel link</span>`,

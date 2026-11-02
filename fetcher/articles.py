@@ -91,4 +91,5 @@ def get(link, fetch):
         reason = "geweigerd" if any(c in str(e) for c in ("401", "403", "429")) else "niet bereikbaar"
         return {"p": [], "why": reason, "img": "", "retry": reason == "niet bereikbaar"}
     paras, why = extract(page) if AVAILABLE else ([], "geen tekstlezer")
-    return {"p": paras, "why": why, "img": og_image(page)}
+    site = re.search(r'<meta[^>]+property="og:site_name"[^>]+content="([^"]+)"', page, re.I)
+    return {"p": paras, "why": why, "img": og_image(page), "site": html.unescape(site.group(1)).strip() if site else ""}

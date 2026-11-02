@@ -3,7 +3,6 @@
 Dit is een eenvoudige, controleerbare puntentelling (geen AI):
 - politieke positie van de bron (centrum scoort het best)
 - volledige tekst beschikbaar, zodat je het in de app kan lezen
-- taal (Nederlands hoeft niet vertaald te worden)
 - geladen of sensationele woorden en uitroeptekens (in de originele taal geteld)
 - opiniestukken en liveblogs scoren lager dan gewone nieuwsberichten
 De redenen worden mee opgeslagen, zodat de app kan tonen waarom een versie gekozen werd.
@@ -30,7 +29,6 @@ CAPS_RE = re.compile(r"\b[A-ZÀ-Ý]{4,}\b")
 
 LEAN_POINTS = {"C": 3, "CL": 2, "CR": 2, "L": 0, "R": 0, None: 2}
 LEAN_TEXT = {"C": "centrumbron", "CL": "centrum-links", "CR": "centrum-rechts", "L": "linkse bron", "R": "rechtse bron"}
-LANG_POINTS = {"nl": 2, "en": 1}
 
 
 def assess(item, src):
@@ -48,7 +46,6 @@ def assess(item, src):
 
     score = LEAN_POINTS.get(src["lean"], 2)
     score += 4 if paras else 0
-    score += LANG_POINTS.get(src["lang"], 0)
     score -= min(4, per_1000 / 2) + in_title + 0.5 * exclaim + 0.5 * caps
     opinion = bool(OPINION_RE.search(item["link"]))
     live = bool(LIVE_RE.search(item["link"]))
@@ -68,12 +65,12 @@ def assess(item, src):
 def reasons(article, src, others):
     """Korte uitleg (Nederlands) waarom deze versie gekozen werd."""
     out = []
+    if article.get("found"):
+        out.append("Gratis versie, gevonden via zoeken omdat de andere bronnen achter een betaal- of loginmuur zitten")
     if src["lean"]:
         out.append(LEAN_TEXT[src["lean"]].capitalize())
     if article["text"]:
         out.append("volledige tekst leesbaar in de app")
-    if src["lang"] == "nl":
-        out.append("Nederlandstalig, dus niet vertaald")
     if not article["loaded"]:
         out.append("geen geladen woorden gevonden")
     else:

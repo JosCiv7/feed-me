@@ -18,6 +18,7 @@ from urllib.parse import urlparse
 
 import articles
 import neutral
+import search
 import translate
 import vault
 from sources import SOURCES, BLOCKED_DOMAINS, CLICKBAIT_PATTERNS, INTEREST_BOOST
@@ -297,7 +298,7 @@ def build_story(group, src_by_id, now):
         "id": it["id"], "source": it["source"], "title": it["title"], "orig_title": it.get("orig_title"),
         "summary": it["summary"], "image": it["image"], "link": it["link"], "published": it["published"].isoformat(),
         "text": bool(it["text_orig"]), "why": it["why"], "words": it["words"], "loaded": it["loaded"],
-        "opinion": it["opinion"], "live": it["live"], "neutral": it["neutral"],
+        "opinion": it["opinion"], "live": it["live"], "neutral": it["neutral"], "found": it.get("found"),
     } for it in group]  # eerste = gekozen versie, daarna de rest van meest naar minst neutraal
 
     return {
@@ -380,7 +381,8 @@ def main():
         for it, entry in zip(todo, ex.map(lambda it: articles.get(it["link"], fetch), todo)):
             entry["tries"] = page_cache.get(it["link"], {}).get("tries", 0) + 1
             page_cache[it["link"]] = entry
-    for it in items:
+
+    def prepare(it):
         entry = page_cache.get(it["link"], {})
         it["id"] = zlib.crc32(it["link"].encode())
         it["text_orig"] = articles.trim_head(entry.get("p", []), it.get("orig_title") or it["title"])
@@ -388,10 +390,43 @@ def main():
         if not it["image"]:
             it["image"] = entry.get("img", "")
         it.update(neutral.assess(it, src_by_id[it["source"]]))
+
+    for it in items:
+        prepare(it)
     with_text = sum(1 for it in items if it["text_orig"])
     print(f"{len(todo)} artikelpagina's opgehaald in {time.time() - t0:.0f}s; {with_text}/{len(items)} met volledige tekst")
 
-    stories = [build_story(g, src_by_id, now) for g in cluster(items)]
+    groups = cluster(items)
+
+    # Nieuws dat enkel achter een betaalmuur staat: een gratis versie bij een andere bron zoeken
+    def get_page(link):
+        if link not in page_cache:
+            page_cache[link] = articles.get(link, fetch) | {"tries": 1}
+        return page_cache[link]
+
+    source_by_domain = {search.domain(s["url"]): s for s in SOURCES}
+    web_sources = {}
+    ctx = {"tokens": tokens, "now": now, "is_blocked": is_blocked, "get_page": get_page,
+           "bing": lambda q: search.bing(q, fetch, parse_feed)}
+    for group, c in search.find_free(groups, items, ctx):
+        src = source_by_domain.get(c["domain"])
+        if not src:
+            src = web_sources.setdefault(c["domain"], {
+                "id": f"web:{c['domain']}", "name": c["site"][:40], "lang": c["lang"], "country": "",
+                "kind": "web", "lean": None, "ok": True, "items": 0, "error": None})
+            src["items"] += 1
+            src_by_id[src["id"]] = src
+        it = {"title": c["title"], "link": c["link"], "summary": c["summary"], "image": c["image"],
+              "published": datetime.fromisoformat(c["published"]) if c["published"] else now,
+              "source": src["id"], "sections": set(group[0]["sections"]), "found": c["query"]}
+        if tr and src["lang"] in translate.ROUTES:
+            it["orig_title"], it["orig_summary"] = it["title"], it["summary"]
+            it["title"], it["summary"] = tr.translate([it["title"], it["summary"]], src["lang"])
+        prepare(it)
+        group.append(it)
+        items.append(it)
+
+    stories = [build_story(g, src_by_id, now) for g in groups]
     stories.sort(key=lambda s: s["score"], reverse=True)
 
     # Volledige teksten vertalen: belangrijkste verhalen eerst, binnen een tijdslimiet (de rest volgt bij een volgende run)
@@ -425,7 +460,8 @@ def main():
     OUT_FILE.write_text(json.dumps({
         "generated": now.isoformat(),
         "texts": sealed,
-        "sources": [{k: s[k] for k in ("id", "name", "lang", "country", "kind", "lean")} | status.get(s["id"], {}) for s in SOURCES],
+        "sources": [{k: s[k] for k in ("id", "name", "lang", "country", "kind", "lean")} | status.get(s["id"], {}) for s in SOURCES]
+                   + list(web_sources.values()),
         "rules": {"blocked": BLOCKED_DOMAINS},
         "stories": stories,
     }, ensure_ascii=False), "utf-8")
