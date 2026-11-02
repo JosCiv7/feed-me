@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parent
 MODELS_DIR = ROOT / "models"
 CACHE_FILE = ROOT / "cache" / "translations.json"
 INDEX_URL = "https://raw.githubusercontent.com/argosopentech/argospm-index/main/index.json"
+USER_AGENT = "FeedMe/1.0 (+https://github.com/JosCiv7/feed-me)"  # de standaard Python-naam wordt geweigerd
 ARGOS_LOCAL = Path.home() / ".local" / "share" / "argos-translate" / "packages"
 
 # welke stappen nodig zijn per brontaal
@@ -47,7 +48,8 @@ def _install(src, tgt):
     print(f"Vertaalmodel {src}->{tgt} downloaden…")
     index = json.loads(urllib.request.urlopen(INDEX_URL, timeout=60).read())
     entry = next(p for p in index if p["from_code"] == src and p["to_code"] == tgt)
-    data = urllib.request.urlopen(entry["links"][0], timeout=600).read()
+    req = urllib.request.Request(entry["links"][0], headers={"User-Agent": USER_AGENT})
+    data = urllib.request.urlopen(req, timeout=600).read()
     with zipfile.ZipFile(io.BytesIO(data)) as z:
         for name in z.namelist():
             parts = Path(name).parts[1:]  # bovenste map van het zip-bestand overslaan
