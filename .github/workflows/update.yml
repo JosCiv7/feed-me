@@ -37,7 +37,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: fetcher/models
-          key: argos-models-v1
+          key: argos-models-v2-fr-en-es
 
       # foto- en vertaalcache van de vorige run hergebruiken
       - uses: actions/cache@v4

@@ -22,7 +22,7 @@ import search
 import summary
 import translate
 import vault
-from sources import SOURCES, BLOCKED_DOMAINS, CLICKBAIT_PATTERNS, INTEREST_BOOST
+from sources import SOURCES, BLOCKED_DOMAINS, CLICKBAIT_PATTERNS, INTEREST_BOOST, TOPICS
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT_FILE = ROOT / "app" / "data" / "news.json"
@@ -36,6 +36,9 @@ TRANSLATE_SECONDS = 300     # tijd voor het vertalen van volledige teksten per r
 SIM_THRESHOLD = 0.3         # hoe gelijkaardig twee titels moeten zijn om hetzelfde nieuwsfeit te zijn
 
 CLICKBAIT_RE = [re.compile(p, re.I) for p in CLICKBAIT_PATTERNS]
+TOPIC_RE = {t: re.compile(rf"\b({p})\b", re.I) for t, p in TOPICS.items()}
+# volgorde voor het label boven een verhaal: eerst plaats, dan onderwerp
+KICKER_ORDER = ("brussel", "belgie", "spanje", "europa", "conflicten", "economie", "wetenschap", "mobiliteit", "tech", "wereld")
 
 BELGIUM_RE = re.compile(
     r"\b(belg\w*|vlaander\w*|vlaams\w*|walloni\w*|waals\w*|wallon\w*|flamand\w*|brussel\w*|bruxell\w*"
@@ -209,7 +212,17 @@ def sections_for(item, src):
             secs.add("wereld")
     elif src["kind"] == "world":
         secs.add("wereld")
+    elif src["kind"] == "spanje":
+        secs.add("spanje")
     return secs
+
+
+def add_topics(item):
+    """Rubrieken op onderwerp (na het vertalen, zodat Nederlandse trefwoorden ook buitenlandse artikels vinden)."""
+    title = f"{item['title']} {item.get('orig_title') or ''}"
+    for topic, rx in TOPIC_RE.items():
+        if rx.search(title) or len({m.group(0).lower() for m in rx.finditer(item["summary"])}) >= 2:
+            item["sections"].add(topic)
 
 
 def similar_pairs(items, docs):
@@ -274,7 +287,14 @@ def build_story(group, src_by_id, now):
     # Getoonde versie: de meest neutrale (zie neutral.py); bij gelijke stand die met foto, dan de nieuwste
     group.sort(key=lambda it: (it["neutral"], bool(it["image"]), it["published"]), reverse=True)
     lead = group[0]
-    sections = set().union(*(it["sections"] for it in group))
+    # plaats-rubrieken van alle bronnen samen; een onderwerp enkel als het hoofdartikel
+    # of minstens de helft van de artikels erover gaat (één zijsprong maakt geen rubriek)
+    counts = {}
+    for it in group:
+        for s in it["sections"]:
+            counts[s] = counts.get(s, 0) + 1
+    sections = {s for s, n in counts.items()
+                if s not in TOPICS or s in lead["sections"] or (n >= 2 and n * 2 >= len(group))}
     leans = {}
     for it in group:
         lean = src_by_id[it["source"]]["lean"]
@@ -314,7 +334,7 @@ def build_story(group, src_by_id, now):
         "published": newest.isoformat(),
         "sections": sorted(sections),
         # rubriek-label volgt het hoofdartikel, niet de som van alle bronnen
-        "kicker": next((s for s in ("brussel", "belgie", "tech", "wereld") if s in lead["sections"]), None),
+        "kicker": next((s for s in KICKER_ORDER if s in lead["sections"]), None),
         "score": round(score, 4),
         "leans": leans,
         "blindspot": blindspot,
@@ -372,6 +392,8 @@ def main():
         print(f"Titels vertaald in {time.time() - t0:.0f}s")
     else:
         print("Vertalen overgeslagen: installeer eerst  pip install -r requirements.txt")
+    for it in items:
+        add_topics(it)
 
     # Volledige tekst + foto van elk artikel ophalen (één keer per artikel, daarna uit de cache)
     t0 = time.time()

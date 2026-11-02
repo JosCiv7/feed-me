@@ -16,6 +16,12 @@
   --sec-brussel: #2557c7;
   --sec-tech: #7b45d6;
   --sec-wereld: #0e86a3;
+  --sec-spanje: #b7791f;
+  --sec-europa: #4338ca;
+  --sec-conflicten: #9f1239;
+  --sec-economie: #15803d;
+  --sec-wetenschap: #be185d;
+  --sec-mobiliteit: #57534e;
   /* politieke kleur: bewust geen rood/blauw om partijkleuren te vermijden */
   --L: #3a5a8c;
   --CL: #8aa6cf;
@@ -38,6 +44,12 @@
     --sec-brussel: #6f98ff;
     --sec-tech: #a98bff;
     --sec-wereld: #3cc0de;
+    --sec-spanje: #f2b53a;
+    --sec-europa: #8f8cff;
+    --sec-conflicten: #f47191;
+    --sec-economie: #4ade80;
+    --sec-wetenschap: #f472b6;
+    --sec-mobiliteit: #b8b2aa;
     --C: #6b6a65;
   }
 }

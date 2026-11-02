@@ -1,9 +1,15 @@
 const PAGE_SIZE = 20;
-const SECTIONS = ["belgie", "brussel", "tech", "wereld"];
+// volgorde van de blokken op de voorpagina (en voorrang voor het label boven een verhaal)
+const SECTIONS = ["brussel", "belgie", "spanje", "europa", "conflicten", "economie", "tech", "wetenschap", "mobiliteit", "wereld"];
+const HOME_ORDER = ["belgie", "brussel", "spanje", "europa", "conflicten", "economie", "tech", "wetenschap", "mobiliteit", "wereld"];
+const BLOCK_TITLES = { economie: "Economie & werk", wetenschap: "Wetenschap & gezondheid", mobiliteit: "Mobiliteit & wonen" };
 const LEANS = ["L", "CL", "C", "CR", "R"];
 const LEAN_NAMES = { L: "Links", CL: "Centrum-links", C: "Centrum", CR: "Centrum-rechts", R: "Rechts" };
-const SECTION_NAMES = { belgie: "België", brussel: "Brussel", tech: "Tech", wereld: "Wereld" };
-const LANG_NAMES = { en: "het Engels", fr: "het Frans" };
+const SECTION_NAMES = {
+  belgie: "België", brussel: "Brussel", spanje: "Spanje", europa: "Europa", conflicten: "Conflicten",
+  economie: "Economie", tech: "Tech", wetenschap: "Wetenschap", mobiliteit: "Mobiliteit", wereld: "Wereld",
+};
+const LANG_NAMES = { en: "het Engels", fr: "het Frans", es: "het Spaans" };
 const COUNTRY_NAMES = {
   BE: "België", NL: "Nederland", UA: "Oekraïne", RU: "Rusland", IL: "Israël", QA: "Qatar", FR: "Frankrijk",
   DE: "Duitsland", ES: "Spanje", GB: "VK", IN: "India", HK: "Hongkong", JP: "Japan", US: "VS", EU: "Europa",
@@ -168,11 +174,11 @@ function renderHome() {
   const broad = take([...all].filter((s) => sourceCount(s) >= 3).sort((a, b) => sourceCount(b) - sourceCount(a) || b.score - a.score), 5);
   if (broad.length) html += block("Breed gedragen", "Verhalen die door veel media gebracht worden", broad.map((s, i) => rankCard(s, i + 1)).join(""));
 
-  for (const sec of SECTIONS) {
-    const list = take(all.filter((s) => sectionOf(s) === sec), 4);
+  for (const sec of HOME_ORDER) {
+    const list = take(all.filter((s) => s.sections.includes(sec)), 4);
     if (!list.length) continue;
     const first = list[0].image ? midCard(list[0]) : rowCard(list[0], false);
-    html += block(SECTION_NAMES[sec], "", first + list.slice(1).map((s) => rowCard(s, false)).join(""), sec);
+    html += block(BLOCK_TITLES[sec] || SECTION_NAMES[sec], "", first + list.slice(1).map((s) => rowCard(s, false)).join(""), sec);
   }
 
   const latest = take([...all].sort((a, b) => b.published.localeCompare(a.published)), 8);
@@ -230,7 +236,7 @@ function renderSources() {
     t.all++;
     if (a.text) t.text++;
   }
-  const groups = [["be", "België"], ["brussel", "Brussel"], ["tech", "Tech"], ["world", "Wereld & Europa"], ["web", "Gratis versies gevonden via zoeken"]];
+  const groups = [["be", "België"], ["brussel", "Brussel"], ["spanje", "Spanje"], ["tech", "Tech"], ["world", "Wereld & Europa"], ["web", "Gratis versies gevonden via zoeken"]];
   const lists = groups.map(([kind, name]) => {
     const list = d.sources.filter((s) => s.kind === kind);
     if (!list.length) return "";
@@ -248,7 +254,7 @@ function renderSources() {
     <p>Feed Me verzamelt het nieuws van ${d.sources.length} bronnen en legt artikels over hetzelfde nieuwsfeit samen. Per verhaal zie je welke media erover berichten en uit welke hoek ze komen.</p>
     <p><b>Meest neutrale versie.</b> Als meerdere media hetzelfde verhaal brengen, toont Feed Me de meest neutrale versie: liefst een centrumbron, met volledige tekst, met zo weinig mogelijk geladen woorden (zoals "schandalig", "chaos" of "slams") en geen opiniestuk. Onder elk artikel zie je hoe de andere media het brengen.</p>
     <p><b>Lezen in de app.</b> Waar de site het toelaat, staat de volledige tekst in de app. Betaal- en loginmuren worden gerespecteerd. Staat een verhaal enkel achter zo'n muur, dan zoekt Feed Me met de titel en samenvatting naar een ander medium dat hetzelfde nieuws gratis brengt. Lukt dat niet, dan krijg je een link naar de site. De teksten zijn versleuteld met je wachtwoord, zodat enkel jij ze kan lezen.</p>
-    <p><b>Vertaling.</b> Franse en Engelse artikels worden automatisch en gratis naar het Nederlands vertaald (label <b>FR→NL</b>). De vertaling is niet perfect; het origineel kan je altijd bekijken.</p>
+    <p><b>Vertaling.</b> Franse, Spaanse en Engelse artikels worden automatisch en gratis naar het Nederlands vertaald (label <b>FR→NL</b>). De vertaling is niet perfect; het origineel kan je altijd bekijken.</p>
     <p>Een <b>blinde vlek</b> betekent dat een verhaal bijna enkel door linkse of enkel door rechtse media wordt gebracht. De politieke labels zijn een voorstel en kunnen aangepast worden in <code>fetcher/sources.py</code>.</p>
     <div class="legend">${LEANS.map((l) => `<span><i style="background:var(--${l})"></i>${LEAN_NAMES[l]}</span>`).join("")}</div>
     ${lists.join("")}

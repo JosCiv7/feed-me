@@ -2,7 +2,7 @@
 
 Persoonlijke nieuwsapp: België, Brussel, tech en de wereld via lokale bronnen, zonder sensatiemedia.
 Per nieuwsfeit zie je welke media erover berichten en uit welke politieke hoek ze komen, en lees je de
-meest neutrale versie volledig in de app. Franse en Engelse artikels worden gratis en offline naar het Nederlands vertaald.
+meest neutrale versie volledig in de app, met een korte samenvatting in bullets. Franse, Spaanse en Engelse artikels worden gratis en offline naar het Nederlands vertaald.
 
 **Online:** https://josciv7.github.io/feed-me/ (wordt elke 30 minuten automatisch bijgewerkt door GitHub Actions)
 
@@ -29,5 +29,7 @@ De eerste keer installeert hij de vertaler en downloadt hij de vertaalmodellen (
 - `fetcher/articles.py`: haalt de volledige tekst van elk artikel op. Betaal- en loginmuren worden gerespecteerd.
 - `fetcher/neutral.py`: kiest per nieuwsfeit de meest neutrale versie (bron, taal, geladen woorden, opinie of niet).
 - `fetcher/translate.py`: offline vertaling met de open-source modellen van Argos Translate (geen account of betaling nodig).
+- `fetcher/search.py`: zoekt een gratis versie van nieuws dat enkel achter een betaalmuur staat.
+- `fetcher/summary.py`: maakt de korte samenvatting (de belangrijkste zinnen uit het artikel zelf).
 - `fetcher/vault.py`: versleutelt de volledige teksten met je wachtwoord (`app/data/texts.bin`).
 - `app/`: de app zelf (installeerbaar op Android als web-app).

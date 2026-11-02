@@ -2,7 +2,7 @@
 
 Werkt volledig op je eigen computer (of op GitHub), zonder account of API-sleutel.
 Nodig: pip install -r requirements.txt   (ctranslate2 + sentencepiece)
-Frans gaat via het Engels naar het Nederlands (fr -> en -> nl).
+Frans en Spaans gaan via het Engels naar het Nederlands (fr -> en -> nl, es -> en -> nl).
 """
 import io
 import json
@@ -19,8 +19,11 @@ INDEX_URL = "https://raw.githubusercontent.com/argosopentech/argospm-index/main/
 USER_AGENT = "FeedMe/1.0 (+https://github.com/JosCiv7/feed-me)"  # de standaard Python-naam wordt geweigerd
 ARGOS_LOCAL = Path.home() / ".local" / "share" / "argos-translate" / "packages"
 
+# de nieuwste es->en (1.9) gebruikt een ander woordsplitsformaat; versie 1.0 werkt met sentencepiece zoals de rest
+PINNED = {("es", "en"): "https://argos-net.com/v1/translate-es_en-1_0.argosmodel"}
+
 # welke stappen nodig zijn per brontaal
-ROUTES = {"en": [("en", "nl")], "fr": [("fr", "en"), ("en", "nl")]}
+ROUTES = {"en": [("en", "nl")], "fr": [("fr", "en"), ("en", "nl")], "es": [("es", "en"), ("en", "nl")]}
 
 try:
     import ctranslate2
@@ -46,9 +49,11 @@ def _install(src, tgt):
         shutil.copy(local / "sentencepiece.model", dest / "sentencepiece.model")
         return
     print(f"Vertaalmodel {src}->{tgt} downloaden…")
-    index = json.loads(urllib.request.urlopen(INDEX_URL, timeout=60).read())
-    entry = next(p for p in index if p["from_code"] == src and p["to_code"] == tgt)
-    req = urllib.request.Request(entry["links"][0], headers={"User-Agent": USER_AGENT})
+    url = PINNED.get((src, tgt))
+    if not url:
+        index = json.loads(urllib.request.urlopen(INDEX_URL, timeout=60).read())
+        url = next(p for p in index if p["from_code"] == src and p["to_code"] == tgt)["links"][0]
+    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     data = urllib.request.urlopen(req, timeout=600).read()
     with zipfile.ZipFile(io.BytesIO(data)) as z:
         for name in z.namelist():

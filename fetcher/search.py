@@ -34,6 +34,7 @@ LANG_HINTS = {
     "nl": set("het een van is dat niet zijn voor met ook wordt naar".split()),
     "fr": set("le la les des est une pas que pour dans sur avec".split()),
     "en": set("the and of is that to was for with on are has".split()),
+    "es": set("el los las del por una para con como pero más está".split()),
 }
 
 

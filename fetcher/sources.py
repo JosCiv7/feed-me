@@ -10,6 +10,7 @@ Dit zijn VOORSTELLEN op basis van algemene reputatie, geen objectieve waarheid.
 kind:
     "be"      = Belgische algemene nieuwsbron
     "brussel" = Brusselse lokale bron
+    "spanje"  = Spaanse bron (komt in de rubriek Spanje)
     "tech"    = technologie
     "world"   = buitenlandse (lokale) bron
 
@@ -32,6 +33,14 @@ SOURCES = [
     {"id": "lecho", "name": "L'Echo", "url": "https://www.lecho.be/rss/actualite.xml", "lang": "fr", "country": "BE", "kind": "be", "lean": "CR"},
     # --- Brussel ---
     {"id": "bruzz", "name": "Bruzz", "url": "https://www.bruzz.be/rss.xml", "lang": "nl", "country": "BE", "kind": "brussel", "lean": "C"},
+    # --- Spanje (Spaanstalig; labels volgens het Spaanse politieke landschap) ---
+    {"id": "elpais", "name": "El País", "url": "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/portada", "lang": "es", "country": "ES", "kind": "spanje", "lean": "CL", "max_items": 25},
+    {"id": "eldiario", "name": "elDiario.es", "url": "https://www.eldiario.es/rss/", "lang": "es", "country": "ES", "kind": "spanje", "lean": "L", "max_items": 15},
+    {"id": "20minutos", "name": "20minutos", "url": "https://www.20minutos.es/rss/", "lang": "es", "country": "ES", "kind": "spanje", "lean": "C", "max_items": 20},
+    {"id": "lavanguardia", "name": "La Vanguardia", "url": "https://www.lavanguardia.com/rss/home.xml", "lang": "es", "country": "ES", "kind": "spanje", "lean": "C", "max_items": 15},
+    {"id": "elconfidencial", "name": "El Confidencial", "url": "https://rss.elconfidencial.com/espana/", "lang": "es", "country": "ES", "kind": "spanje", "lean": "CR"},
+    {"id": "elmundo", "name": "El Mundo", "url": "https://e00-elmundo.uecdn.es/elmundo/rss/portada.xml", "lang": "es", "country": "ES", "kind": "spanje", "lean": "CR", "max_items": 15},
+    {"id": "abc", "name": "ABC", "url": "https://www.abc.es/rss/2.0/portada/", "lang": "es", "country": "ES", "kind": "spanje", "lean": "R", "max_items": 15},
     # --- Europa ---
     {"id": "politico", "name": "Politico Europe", "url": "https://www.politico.eu/feed/", "lang": "en", "country": "EU", "kind": "world", "lean": "C"},
     # --- Tech ---
@@ -47,7 +56,6 @@ SOURCES = [
     {"id": "aljazeera", "name": "Al Jazeera", "url": "https://www.aljazeera.com/xml/rss/all.xml", "lang": "en", "country": "QA", "kind": "world", "lean": None},
     {"id": "lemonde", "name": "Le Monde", "url": "https://www.lemonde.fr/international/rss_full.xml", "lang": "fr", "country": "FR", "kind": "world", "lean": None},
     {"id": "spiegel", "name": "Der Spiegel", "url": "https://www.spiegel.de/international/index.rss", "lang": "en", "country": "DE", "kind": "world", "lean": None, "max_age_h": 120},
-    {"id": "elpais", "name": "El País", "url": "https://feeds.elpais.com/mrss-s/pages/ep/site/english.elpais.com/portada", "lang": "en", "country": "ES", "kind": "world", "lean": None},
     {"id": "bbc", "name": "BBC", "url": "https://feeds.bbci.co.uk/news/world/rss.xml", "lang": "en", "country": "GB", "kind": "world", "lean": None},
     {"id": "hindu", "name": "The Hindu", "url": "https://www.thehindu.com/news/international/feeder/default.rss", "lang": "en", "country": "IN", "kind": "world", "lean": None},
     {"id": "scmp", "name": "South China Morning Post", "url": "https://www.scmp.com/rss/91/feed", "lang": "en", "country": "HK", "kind": "world", "lean": None},
@@ -95,4 +103,31 @@ CLICKBAIT_PATTERNS = [
 ]
 
 # --- Interesses: welke rubrieken krijgen voorrang in "Voor jou" ---
-INTEREST_BOOST = {"brussel": 1.6, "belgie": 1.35, "tech": 1.35, "wereld": 1.0}
+INTEREST_BOOST = {
+    "brussel": 1.6, "belgie": 1.35, "tech": 1.35, "spanje": 1.3, "europa": 1.15,
+    "economie": 1.05, "wetenschap": 1.05, "mobiliteit": 1.05, "conflicten": 1.0, "wereld": 1.0,
+}
+
+# --- Rubrieken op onderwerp ---
+# Een artikel komt in een rubriek als een van deze woorden in de titel staat,
+# of als er minstens twee verschillende in de samenvatting staan.
+TOPICS = {
+    "spanje": r"spanje|spaans\w*|madrid\w*|barcelona|catalon\w*|catala\w*|andalus\w*|valencia\w*|sevilla|bilbao|baskisch\w*"
+              r"|mallorca|canarische|ibiza|málaga|malaga|sánchez|feijóo|psoe|espagne|spain|spanish",
+    "europa": r"europese (commissie|unie|raad|centrale bank)|europees parlement|eu-\w+|eu|von der leyen|kallas|eurozone"
+              r"|schengen|europarlement\w*|commission européenne|union européenne|european commission|european union",
+    "conflicten": r"oorlog\w*|oekraïn\w*|ukrain\w*|kyiv|kiev|kremlin|gaza|hamas|hezbollah|westelijke jordaanoever|west bank"
+                  r"|soedan|sudan|congo|m23|houthi\w*|jemen|drone-?aanval\w*|raketaanval\w*|luchtaanval\w*|staakt-het-vuren"
+                  r"|wapenstilstand|ceasefire|troepen|bombardement\w*|frontlinie|offensief|guerre|war",
+    "economie": r"econom\w*|beurs\w*|aandel\w*|bedrijf\w*|omzet|winst|faillissement\w*|overname\w*|fusie|banen|jobs?"
+                r"|werkloos\w*|herstructurering|lonen|loon\w*|inflatie|rente\w*|ecb|begroting\w*|btw|belasting\w*"
+                r"|pensioen\w*|koopkracht|investering\w*|export|handelsoorlog|invoerheffing\w*|tarieven|bbp|recessie"
+                r"|vakbond\w*|staking\w*",
+    "wetenschap": r"wetenschap\w*|onderzoekers|studie|universiteit\w*|nasa|esa|ruimtevaart\w*|ruimte|planeet\w*|astronom\w*"
+                  r"|telescoop|fossiel\w*|dna|genetisch\w*|gezondheid\w*|kanker|vaccin\w*|virus\w*|ebola"
+                  r"|epidemie|pandemie|artsen|medicijn\w*|geneesmiddel\w*|hersen\w*|ziekte\w*|griep",
+    "mobiliteit": r"verkeer\w*|file|files|trein\w*|nmbs|sncb|de lijn|mivb|stib|tram\w*|metro|fiets\w*|snelweg\w*|tunnel\w*"
+                  r"|luchthaven\w*|zaventem|spoor\w*|mobiliteit\w*|woningmarkt|woningprijzen|huurwoning\w*|sociale woning\w*"
+                  r"|huurprijs\w*|huurder\w*|vastgoed\w*|renovatie\w*|wonen"
+                  r"|appartement\w*|hypothe\w*|rijbewijs|parkeer\w*|lez",
+}
