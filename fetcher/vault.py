@@ -27,10 +27,11 @@ MAGIC = b"FM1"
 
 
 def password():
-    key = os.environ.get("FEEDME_KEY", "").strip()
-    if not key and PASSWORD_FILE.exists():
-        key = PASSWORD_FILE.read_text("utf-8").strip().splitlines()[0].strip()
-    return key or None
+    key = os.environ.get("FEEDME_KEY", "")
+    if not key.strip("﻿ \r\n\t") and PASSWORD_FILE.exists():
+        key = PASSWORD_FILE.read_text("utf-8").strip().splitlines()[0]
+    # onzichtbare tekens (BOM, enters) die Windows soms toevoegt, weghalen
+    return key.strip("﻿ \r\n\t") or None
 
 
 def seal(obj, out_file):
