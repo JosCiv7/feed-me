@@ -1,5 +1,5 @@
 // Alles eerst van het netwerk (zo komen updates meteen door); offline de laatst bewaarde versie.
-const CACHE = "feedme-v3";
+const CACHE = "feedme-v4";
 const SHELL = ["./", "index.html", "style.css", "app.js", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png"];
 
 self.addEventListener("install", (e) => {
@@ -16,11 +16,12 @@ self.addEventListener("activate", (e) => {
 
 self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
-  if (url.origin !== location.origin) return;
+  if (url.origin !== location.origin || e.request.method !== "GET") return;
   // news.json krijgt een ?t=… mee; bewaar het onder één vaste sleutel
   const key = url.pathname.endsWith("/data/news.json") ? "data/news.json" : e.request;
   e.respondWith(
-    fetch(e.request)
+    // no-cache: altijd bij GitHub nagaan of er een nieuwere versie is (GitHub cachet anders 10 min)
+    fetch(e.request, { cache: "no-cache" })
       .then((res) => {
         if (res.ok) {
           const copy = res.clone();
