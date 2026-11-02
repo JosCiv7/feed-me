@@ -27,7 +27,7 @@ De eerste keer installeert hij de vertaler en downloadt hij de vertaalmodellen (
 - `fetcher/sources.py`: de bronnenlijst, politieke labels, geweerde sensatiemedia en klikaas-filters. Hier pas je alles aan.
 - `fetcher/fetch_news.py`: haalt de RSS-feeds op, filtert, vertaalt, groepeert per nieuwsfeit en schrijft `app/data/news.json`.
 - `fetcher/articles.py`: haalt de volledige tekst van elk artikel op. Betaal- en loginmuren worden gerespecteerd.
-- `fetcher/neutral.py`: kiest per nieuwsfeit de meest neutrale versie (bron, taal, geladen woorden, opinie of niet).
+- `fetcher/neutral.py`: kiest per nieuwsfeit de meest neutrale versie (bron, volledige tekst, geladen woorden, opinie of niet).
 - `fetcher/translate.py`: offline vertaling met de open-source modellen van Argos Translate (geen account of betaling nodig).
 - `fetcher/search.py`: zoekt een gratis versie van nieuws dat enkel achter een betaalmuur staat.
 - `fetcher/summary.py`: maakt de korte samenvatting (de belangrijkste zinnen uit het artikel zelf).
