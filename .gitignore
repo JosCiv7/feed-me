@@ -1,0 +1,5 @@
+.venv/
+fetcher/models/
+fetcher/cache/
+app/data/
+__pycache__/

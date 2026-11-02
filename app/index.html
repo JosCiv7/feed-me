@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Feed Me</title>
+  <meta name="description" content="Persoonlijk nieuws: België, Brussel, tech en de wereld via lokale bronnen.">
+  <meta name="theme-color" content="#f2502f">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><rect x="5" y="7" width="22" height="4" rx="2" fill="currentColor"/><rect x="5" y="14" width="16" height="4" rx="2" fill="currentColor"/><rect x="5" y="21" width="10" height="4" rx="2" fill="currentColor"/><circle cx="24.5" cy="23" r="3" fill="currentColor"/></svg>
+      <span>Feed Me</span>
+    </div>
+    <button id="refresh" class="icon-btn" aria-label="Vernieuwen">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+  </header>
+
+  <nav class="tabs" id="tabs">
+    <button data-tab="voorjou" class="active">Voor jou</button>
+    <button data-tab="belgie">België</button>
+    <button data-tab="brussel">Brussel</button>
+    <button data-tab="tech">Tech</button>
+    <button data-tab="wereld">Wereld</button>
+    <button data-tab="bronnen">Bronnen</button>
+  </nav>
+
+  <main id="feed" aria-live="polite">
+    <p class="status">Nieuws laden…</p>
+  </main>
+
+  <dialog id="sheet" class="sheet">
+    <div class="sheet-inner">
+      <div class="sheet-head">
+        <h2>Wie brengt dit verhaal?</h2>
+        <button class="icon-btn" id="sheet-close" aria-label="Sluiten">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div id="sheet-body"></div>
+    </div>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
