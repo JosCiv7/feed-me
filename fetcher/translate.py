@@ -92,6 +92,10 @@ class Translator:
             out[i].append("".join(r.hypotheses[0]).replace("▁", " ").strip())
         return [" ".join(parts) for parts in out]
 
+    def has(self, texts, lang):
+        """Zijn al deze teksten al eens vertaald (dus gratis uit de cache)?"""
+        return all(not t or f"{lang}|{t}" in self.cache for t in texts)
+
     def translate(self, texts, lang):
         """Vertaal een lijst teksten van `lang` naar Nederlands (met cache)."""
         keys = [f"{lang}|{t}" for t in texts]

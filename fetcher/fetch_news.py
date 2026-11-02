@@ -1,5 +1,5 @@
-"""Haalt alle RSS-feeds op, filtert sensatie, groepeert artikels per nieuwsfeit
-en schrijft app/data/news.json. Enkel standaard Python, geen installaties nodig.
+"""Haalt alle RSS-feeds op, filtert sensatie, haalt de volledige tekst op, groepeert artikels per nieuwsfeit,
+kiest per nieuwsfeit de meest neutrale versie en schrijft app/data/news.json (+ versleuteld texts.bin).
 
 Gebruik:  python fetcher/fetch_news.py
 """
@@ -16,16 +16,22 @@ from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlparse
 
+import articles
+import neutral
 import translate
+import vault
 from sources import SOURCES, BLOCKED_DOMAINS, CLICKBAIT_PATTERNS, INTEREST_BOOST
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT_FILE = ROOT / "app" / "data" / "news.json"
-IMAGE_CACHE_FILE = ROOT / "fetcher" / "cache" / "images.json"
+TEXTS_FILE = ROOT / "app" / "data" / "texts.bin"
 
 USER_AGENT = "Mozilla/5.0 (Feed Me persoonlijke nieuwslezer)"
 MAX_AGE_HOURS = 36
-MAX_OG_LOOKUPS = 250
+MAX_ITEMS_PER_SOURCE = 40   # zodat één drukke bron de rest niet overspoelt
+MAX_PAGE_FETCHES = 500      # nieuwe artikelpagina's per run
+TRANSLATE_SECONDS = 300     # tijd voor het vertalen van volledige teksten per run
+SIM_THRESHOLD = 0.3         # hoe gelijkaardig twee titels moeten zijn om hetzelfde nieuwsfeit te zijn
 
 CLICKBAIT_RE = [re.compile(p, re.I) for p in CLICKBAIT_PATTERNS]
 
@@ -180,22 +186,10 @@ def is_clickbait(title):
     return any(r.search(title) for r in CLICKBAIT_RE)
 
 
-def og_image(url):
-    try:
-        page = fetch(url, limit=200_000, timeout=12)
-    except Exception:
-        return ""
-    for p in (r'<meta[^>]+property="og:image"[^>]+content="([^"]+)"', r'<meta[^>]+content="([^"]+)"[^>]+property="og:image"',
-              r'<meta[^>]+name="twitter:image"[^>]+content="([^"]+)"'):
-        m = re.search(p, page, re.I)
-        if m:
-            return html.unescape(m.group(1))
-    return ""
-
-
 def tokens(text):
     words = re.findall(r"[a-zà-ÿ0-9][a-zà-ÿ0-9\-']+", text.lower())
-    return {w.strip("-'") for w in words if len(w) > 2 and w not in STOPWORDS}
+    # enkel de eerste 6 letters: zo zijn "supermarket" en "supermarkets" (en "cyberattack"/"cyberaanval") hetzelfde woord
+    return {w.strip("-'")[:6] for w in words if len(w) > 2 and w not in STOPWORDS}
 
 
 def sections_for(item, src):
@@ -216,9 +210,8 @@ def sections_for(item, src):
     return secs
 
 
-def cluster(items):
-    """Groepeer artikels over hetzelfde nieuwsfeit (zelfde taal, gelijkaardige woorden)."""
-    docs = [tokens(f"{it['title']} {it['summary'][:160]}") for it in items]
+def similar_pairs(items, docs):
+    """Paren artikels (van verschillende bronnen) met genoeg gelijkaardige, zeldzame woorden."""
     df = {}
     for d in docs:
         for t in d:
@@ -234,14 +227,6 @@ def cluster(items):
             if df[t] <= 25:
                 index.setdefault(t, []).append(i)
 
-    parent = list(range(n))
-
-    def find(x):
-        while parent[x] != x:
-            parent[x] = parent[parent[x]]
-            x = parent[x]
-        return x
-
     for i in range(n):
         candidates = {j for t in docs[i] if t in index for j in index[t] if j > i}
         for j in candidates:
@@ -251,8 +236,31 @@ def cluster(items):
             if len(shared) < 3:
                 continue
             sim = sum(weights[i][t] * weights[j][t] for t in shared) / (norms[i] * norms[j])
-            if sim >= 0.38:
-                parent[find(i)] = find(j)
+            if sim >= SIM_THRESHOLD:
+                yield i, j
+
+
+def cluster(items):
+    """Groepeer artikels over hetzelfde nieuwsfeit.
+
+    Twee keer vergelijken: op de vertaalde (Nederlandse) titels, zodat talen elkaar vinden,
+    en op de originele titels, omdat twee Engelse bronnen elkaar in het Engels beter herkennen
+    dan na twee verschillende automatische vertalingen.
+    """
+    translated = [tokens(f"{it['title']} {it['summary'][:160]}") for it in items]
+    original = [tokens(f"{it.get('orig_title') or it['title']} {(it.get('orig_summary') or it['summary'])[:160]}") for it in items]
+    n = len(items)
+    parent = list(range(n))
+
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    for docs in (translated, original):
+        for i, j in similar_pairs(items, docs):
+            parent[find(i)] = find(j)
 
     groups = {}
     for i in range(n):
@@ -261,8 +269,8 @@ def cluster(items):
 
 
 def build_story(group, src_by_id, now):
-    # Hoofdartikel: liefst Nederlandstalig, met foto, meest recent
-    group.sort(key=lambda it: (src_by_id[it["source"]]["lang"] == "nl", bool(it["image"]), it["published"]), reverse=True)
+    # Getoonde versie: de meest neutrale (zie neutral.py); bij gelijke stand die met foto, dan de nieuwste
+    group.sort(key=lambda it: (it["neutral"], bool(it["image"]), it["published"]), reverse=True)
     lead = group[0]
     sections = set().union(*(it["sections"] for it in group))
     leans = {}
@@ -285,12 +293,19 @@ def build_story(group, src_by_id, now):
     boost = max(INTEREST_BOOST.get(s, 1.0) for s in sections) if sections else 1.0
     score = (1 + 1.5 * math.log2(1 + n_sources)) * math.exp(-age_h / 14) * boost
 
+    arts = [{
+        "id": it["id"], "source": it["source"], "title": it["title"], "orig_title": it.get("orig_title"),
+        "summary": it["summary"], "image": it["image"], "link": it["link"], "published": it["published"].isoformat(),
+        "text": bool(it["text_orig"]), "why": it["why"], "words": it["words"], "loaded": it["loaded"],
+        "opinion": it["opinion"], "live": it["live"], "neutral": it["neutral"],
+    } for it in group]  # eerste = gekozen versie, daarna de rest van meest naar minst neutraal
+
     return {
-        "id": zlib.crc32(lead["link"].encode()),
+        "id": lead["id"],
         "title": lead["title"],
         "orig_title": lead.get("orig_title"),
         "summary": lead["summary"],
-        "image": next((it["image"] for it in group if it["image"]), ""),
+        "image": lead["image"] or next((it["image"] for it in group if it["image"]), ""),
         "link": lead["link"],
         "source": lead["source"],
         "lang": src_by_id[lead["source"]]["lang"],
@@ -301,24 +316,23 @@ def build_story(group, src_by_id, now):
         "score": round(score, 4),
         "leans": leans,
         "blindspot": blindspot,
-        "articles": [
-            {"source": it["source"], "title": it["title"], "orig_title": it.get("orig_title"), "link": it["link"],
-             "published": it["published"].isoformat()}
-            for it in sorted(group, key=lambda it: it["published"], reverse=True)
-        ],
+        "why_pick": neutral.reasons(arts[0], src_by_id[lead["source"]], len(group) - 1),
+        "articles": arts,
     }
 
 
 def main():
     now = datetime.now(timezone.utc)
     src_by_id = {s["id"]: s for s in SOURCES}
-    image_cache = json.loads(IMAGE_CACHE_FILE.read_text("utf-8")) if IMAGE_CACHE_FILE.exists() else {}
 
     all_items, status = [], {}
     with concurrent.futures.ThreadPoolExecutor(12) as ex:
         for src, items, err in ex.map(fetch_source, SOURCES):
             kept = 0
+            items.sort(key=lambda it: it["published"] or now, reverse=True)
             for it in items:
+                if kept >= src.get("max_items", MAX_ITEMS_PER_SOURCE):
+                    break
                 if not it["published"]:
                     it["published"] = now
                 if (now - it["published"]).total_seconds() > src.get("max_age_h", MAX_AGE_HOURS) * 3600:
@@ -341,7 +355,8 @@ def main():
             seen.add(it["link"])
             items.append(it)
 
-    # Frans en Engels vertalen naar het Nederlands (offline, gratis)
+    # Titels en samenvattingen in het Frans en Engels vertalen naar het Nederlands (offline, gratis)
+    tr = None
     if translate.AVAILABLE:
         t0 = time.time()
         tr = translate.Translator()
@@ -350,36 +365,72 @@ def main():
             titles = tr.translate([it["title"] for it in todo], lang)
             summaries = tr.translate([it["summary"] for it in todo], lang)
             for it, t, s in zip(todo, titles, summaries):
-                it["orig_title"] = it["title"]
+                it["orig_title"], it["orig_summary"] = it["title"], it["summary"]
                 it["title"], it["summary"] = t, s
-        tr.save()
-        print(f"Vertaald in {time.time() - t0:.0f}s")
+        print(f"Titels vertaald in {time.time() - t0:.0f}s")
     else:
         print("Vertalen overgeslagen: installeer eerst  pip install -r requirements.txt")
 
-    # Ontbrekende foto's opzoeken via de og:image van het artikel (met cache)
-    missing = [it for it in items if not it["image"] and it["link"] not in image_cache][:MAX_OG_LOOKUPS]
-    with concurrent.futures.ThreadPoolExecutor(16) as ex:
-        for it, img in zip(missing, ex.map(lambda it: og_image(it["link"]), missing)):
-            image_cache[it["link"]] = img
+    # Volledige tekst + foto van elk artikel ophalen (één keer per artikel, daarna uit de cache)
+    t0 = time.time()
+    page_cache = articles.load_cache()
+    todo = [it for it in items if it["link"] not in page_cache
+            or page_cache[it["link"]].get("retry") and page_cache[it["link"]].get("tries", 1) < 3][:MAX_PAGE_FETCHES]
+    with concurrent.futures.ThreadPoolExecutor(12) as ex:
+        for it, entry in zip(todo, ex.map(lambda it: articles.get(it["link"], fetch), todo)):
+            entry["tries"] = page_cache.get(it["link"], {}).get("tries", 0) + 1
+            page_cache[it["link"]] = entry
     for it in items:
+        entry = page_cache.get(it["link"], {})
+        it["id"] = zlib.crc32(it["link"].encode())
+        it["text_orig"] = articles.trim_head(entry.get("p", []), it.get("orig_title") or it["title"])
+        it["why"] = entry.get("why") if it["link"] in page_cache else "nog niet opgehaald"
         if not it["image"]:
-            it["image"] = image_cache.get(it["link"], "")
+            it["image"] = entry.get("img", "")
+        it.update(neutral.assess(it, src_by_id[it["source"]]))
+    with_text = sum(1 for it in items if it["text_orig"])
+    print(f"{len(todo)} artikelpagina's opgehaald in {time.time() - t0:.0f}s; {with_text}/{len(items)} met volledige tekst")
 
     stories = [build_story(g, src_by_id, now) for g in cluster(items)]
     stories.sort(key=lambda s: s["score"], reverse=True)
 
+    # Volledige teksten vertalen: belangrijkste verhalen eerst, binnen een tijdslimiet (de rest volgt bij een volgende run)
+    by_id = {it["id"]: it for it in items}
+    texts, pending = {}, 0
+    t0 = time.time()
+    for story in stories:
+        for a in story["articles"]:
+            it = by_id[a["id"]]
+            if not it["text_orig"]:
+                continue
+            lang = src_by_id[it["source"]]["lang"]
+            entry = {"p": it["text_orig"]}
+            if lang in translate.ROUTES and tr:
+                if tr.has(it["text_orig"], lang) or time.time() - t0 < TRANSLATE_SECONDS:
+                    entry = {"p": tr.translate(it["text_orig"], lang), "o": it["text_orig"]}
+                else:
+                    entry["untranslated"] = True
+                    pending += 1
+            texts[str(a["id"])] = entry
+    if tr:
+        tr.save()
+        print(f"Volledige teksten vertaald in {time.time() - t0:.0f}s" + (f" ({pending} volgen bij de volgende update)" if pending else ""))
+
     OUT_FILE.parent.mkdir(parents=True, exist_ok=True)
+    sealed = vault.seal(texts, TEXTS_FILE)
+    if not sealed:
+        TEXTS_FILE.unlink(missing_ok=True)
+        print("Volledige teksten NIET opgeslagen: geen wachtwoord (FEEDME_KEY of 'Feed Me wachtwoord.txt') of pakket 'cryptography' ontbreekt")
+
     OUT_FILE.write_text(json.dumps({
         "generated": now.isoformat(),
+        "texts": sealed,
         "sources": [{k: s[k] for k in ("id", "name", "lang", "country", "kind", "lean")} | status.get(s["id"], {}) for s in SOURCES],
         "rules": {"blocked": BLOCKED_DOMAINS},
         "stories": stories,
     }, ensure_ascii=False), "utf-8")
 
-    keep_links = {it["link"] for it in items}
-    IMAGE_CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    IMAGE_CACHE_FILE.write_text(json.dumps({k: v for k, v in image_cache.items() if k in keep_links}), "utf-8")
+    articles.save_cache(page_cache, {it["link"] for it in items})
 
     multi = sum(1 for s in stories if len(s["articles"]) > 1)
     print(f"\n{len(items)} artikels -> {len(stories)} verhalen ({multi} met meerdere bronnen) -> {OUT_FILE}")

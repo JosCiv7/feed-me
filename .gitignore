@@ -3,3 +3,5 @@ fetcher/models/
 fetcher/cache/
 app/data/
 __pycache__/
+Feed Me wachtwoord.txt
+.claude/

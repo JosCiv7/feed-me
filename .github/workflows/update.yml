@@ -46,7 +46,10 @@ jobs:
           key: feed-cache-${{ github.run_id }}
           restore-keys: feed-cache-
 
+      # FEEDME_KEY = wachtwoord waarmee de volledige artikels versleuteld worden
       - run: python fetcher/fetch_news.py
+        env:
+          FEEDME_KEY: ${{ secrets.FEEDME_KEY }}
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

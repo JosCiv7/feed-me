@@ -8,12 +8,13 @@ lean (politieke kleur, enkel voor Belgische/Europese duiding):
 Dit zijn VOORSTELLEN op basis van algemene reputatie, geen objectieve waarheid.
 
 kind:
-max_age_h (optioneel): hoe oud artikels mogen zijn, voor bronnen die weinig publiceren (standaard 36 uur)
-
     "be"      = Belgische algemene nieuwsbron
     "brussel" = Brusselse lokale bron
     "tech"    = technologie
     "world"   = buitenlandse (lokale) bron
+
+max_age_h (optioneel): hoe oud artikels mogen zijn, voor bronnen die weinig publiceren (standaard 36 uur)
+max_items (optioneel): maximum aantal artikels per update, voor bronnen die heel veel publiceren (standaard 40)
 """
 
 SOURCES = [
@@ -53,6 +54,19 @@ SOURCES = [
     {"id": "japantimes", "name": "Japan Times", "url": "https://www.japantimes.co.jp/feed/", "lang": "en", "country": "JP", "kind": "world", "lean": None},
     {"id": "africanews", "name": "Africanews", "url": "https://www.africanews.com/feed/rss", "lang": "en", "country": "AFRICA", "kind": "world", "lean": None},
     {"id": "mercopress", "name": "MercoPress", "url": "https://en.mercopress.com/rss/", "lang": "en", "country": "LATAM", "kind": "world", "lean": None},
+    {"id": "dw", "name": "DW", "url": "https://rss.dw.com/rdf/rss-en-all", "lang": "en", "country": "DE", "kind": "world", "lean": None},
+    {"id": "ansa", "name": "ANSA", "url": "https://www.ansa.it/english/news/english_nr_rss.xml", "lang": "en", "country": "IT", "kind": "world", "lean": None, "max_items": 20},
+    {"id": "notesfrompoland", "name": "Notes from Poland", "url": "https://notesfrompoland.com/feed/", "lang": "en", "country": "PL", "kind": "world", "lean": None, "max_age_h": 96},
+    {"id": "err", "name": "ERR News", "url": "https://news.err.ee/rss", "lang": "en", "country": "EE", "kind": "world", "lean": None, "max_items": 20},
+    {"id": "balkaninsight", "name": "Balkan Insight", "url": "https://balkaninsight.com/feed/", "lang": "en", "country": "BALKAN", "kind": "world", "lean": None, "max_age_h": 72},
+    {"id": "npr", "name": "NPR", "url": "https://feeds.npr.org/1001/rss.xml", "lang": "en", "country": "US", "kind": "world", "lean": None},
+    {"id": "cbc", "name": "CBC", "url": "https://www.cbc.ca/webfeed/rss/rss-topstories", "lang": "en", "country": "CA", "kind": "world", "lean": None},
+    {"id": "abcau", "name": "ABC Australia", "url": "https://www.abc.net.au/news/feed/51120/rss.xml", "lang": "en", "country": "AU", "kind": "world", "lean": None},
+    {"id": "yonhap", "name": "Yonhap", "url": "https://en.yna.co.kr/RSS/news.xml", "lang": "en", "country": "KR", "kind": "world", "lean": None, "max_items": 20},
+    {"id": "straitstimes", "name": "The Straits Times", "url": "https://www.straitstimes.com/news/world/rss.xml", "lang": "en", "country": "SG", "kind": "world", "lean": None, "max_items": 20},
+    {"id": "rappler", "name": "Rappler", "url": "https://www.rappler.com/feed/", "lang": "en", "country": "PH", "kind": "world", "lean": None},
+    {"id": "dailymaverick", "name": "Daily Maverick", "url": "https://www.dailymaverick.co.za/dmrss/", "lang": "en", "country": "ZA", "kind": "world", "lean": None},
+    {"id": "premiumtimes", "name": "Premium Times", "url": "https://www.premiumtimesng.com/feed", "lang": "en", "country": "NG", "kind": "world", "lean": None},
 ]
 
 # --- Kwaliteitsregel 1: geen sensatie- en boulevardmedia ---

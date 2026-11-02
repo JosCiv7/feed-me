@@ -14,10 +14,10 @@
 </head>
 <body>
   <header class="top">
-    <div class="brand">
+    <a class="brand" href="#" data-tab-link="voorjou">
       <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><rect x="5" y="7" width="22" height="4" rx="2" fill="currentColor"/><rect x="5" y="14" width="16" height="4" rx="2" fill="currentColor"/><rect x="5" y="21" width="10" height="4" rx="2" fill="currentColor"/><circle cx="24.5" cy="23" r="3" fill="currentColor"/></svg>
       <span>Feed Me</span>
-    </div>
+    </a>
     <button id="refresh" class="icon-btn" aria-label="Vernieuwen">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
@@ -25,10 +25,10 @@
 
   <nav class="tabs" id="tabs">
     <button data-tab="voorjou" class="active">Voor jou</button>
-    <button data-tab="belgie">België</button>
-    <button data-tab="brussel">Brussel</button>
-    <button data-tab="tech">Tech</button>
-    <button data-tab="wereld">Wereld</button>
+    <button data-tab="belgie" style="--c: var(--sec-belgie)">België</button>
+    <button data-tab="brussel" style="--c: var(--sec-brussel)">Brussel</button>
+    <button data-tab="tech" style="--c: var(--sec-tech)">Tech</button>
+    <button data-tab="wereld" style="--c: var(--sec-wereld)">Wereld</button>
     <button data-tab="bronnen">Bronnen</button>
   </nav>
 
@@ -36,17 +36,7 @@
     <p class="status">Nieuws laden…</p>
   </main>
 
-  <dialog id="sheet" class="sheet">
-    <div class="sheet-inner">
-      <div class="sheet-head">
-        <h2>Wie brengt dit verhaal?</h2>
-        <button class="icon-btn" id="sheet-close" aria-label="Sluiten">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        </button>
-      </div>
-      <div id="sheet-body"></div>
-    </div>
-  </dialog>
+  <section id="reader" class="reader" hidden aria-label="Artikel"></section>
 
   <script src="app.js"></script>
 </body>
