@@ -155,7 +155,8 @@ h2, h3 { font-family: var(--serif); font-weight: 700; letter-spacing: -0.005em; 
 .row.noimg { grid-template-columns: 1fr; }
 .block > .row:last-child, .block > .mid:last-child { border-bottom: 0; }
 
-.rank { display: grid; grid-template-columns: 34px 1fr; gap: 6px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.rank { display: grid; grid-template-columns: 30px 1fr 96px; gap: 10px; align-items: start; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.rank .img { width: 96px; height: 72px; border-radius: 4px; }
 .rank .n { font-family: var(--serif); font-size: 28px; font-weight: 700; line-height: 1; color: var(--brand); }
 .rank h3 { margin: 0; font-size: 16.5px; line-height: 1.27; }
 .rank:last-child { border-bottom: 0; }
@@ -202,6 +203,11 @@ h2, h3 { font-family: var(--serif); font-weight: 700; letter-spacing: -0.005em; 
 .body p { font-family: var(--serif); font-size: 18.5px; line-height: 1.62; margin: 0 0 1em; }
 .body h3 { font-size: 20px; margin: 1.3em 0 0.5em; }
 .body .note { font-family: var(--sans); font-size: 13.5px; color: var(--muted); }
+.summary { border-top: 3px solid var(--brand); background: var(--soft); border-radius: 0 0 8px 8px; padding: 12px 14px 4px; margin: 0 0 20px; }
+.summary h2 { font-family: var(--sans); font-size: 15px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; margin: 0 0 6px; color: var(--accent); }
+.summary ul { margin: 0; padding-left: 20px; }
+.summary li { font-family: var(--sans); font-size: 15.5px; line-height: 1.45; margin: 0 0 8px; }
+.summary .note { margin: 0 0 8px; }
 .toggle {
   border: 1px solid var(--line); background: var(--bg); border-radius: 999px; padding: 5px 12px;
   font-size: 13.5px; font-weight: 600; cursor: pointer; margin-bottom: 14px;

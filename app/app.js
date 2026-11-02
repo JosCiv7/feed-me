@@ -130,7 +130,7 @@ const leadCard = (s) => link(s, "lead", `${imageHtml(s.image, src(s.source).name
 const gridCard = (s) => link(s, "card", `${imageHtml(s.image, src(s.source).name)}${kickerHtml(s)}<h3>${esc(s.title)}</h3>${metaHtml(s)}`);
 const midCard = (s) => link(s, "mid", `${imageHtml(s.image, src(s.source).name)}<h3>${esc(s.title)}</h3>${metaHtml(s)}`);
 const rowCard = (s, withSection) => link(s, s.image ? "row" : "row noimg", `<div>${kickerHtml(s, withSection)}<h3>${esc(s.title)}</h3>${metaHtml(s)}</div>${s.image ? imageHtml(s.image, src(s.source).name) : ""}`);
-const rankCard = (s, i) => link(s, "rank", `<span class="n">${i}</span><div><h3>${esc(s.title)}</h3>${metaHtml(s)}</div>`);
+const rankCard = (s, i) => link(s, "rank", `<span class="n">${i}</span><div><h3>${esc(s.title)}</h3>${metaHtml(s)}</div>${imageHtml(s.image, src(s.source).name)}`);
 const latestCard = (s) => link(s, "latest", `<time>${clock(s.published)}</time><div><h3>${esc(s.title)}</h3><div class="meta"><span class="src">${esc(src(s.source).name)}</span></div></div>`);
 
 function block(title, sub, inner, sec) {
@@ -366,7 +366,11 @@ async function fillBody(story, a) {
     if (!entry) { body.innerHTML = noTextHtml(story, { ...a, why: null }); return; }
     const translated = Boolean(entry.o);
     const paras = state.showOriginal && translated ? entry.o : entry.p;
-    body.innerHTML =
+    const bullets = entry.s?.length
+      ? `<div class="summary"><h2>Kort samengevat</h2><ul>${entry.s.map((b) => `<li>${esc(b)}</li>`).join("")}</ul>
+         <p class="note">De belangrijkste zinnen uit het artikel zelf, automatisch gekozen.</p></div>`
+      : "";
+    body.innerHTML = bullets +
       (translated ? `<button class="toggle" id="toggle-orig">${state.showOriginal ? "Toon vertaling" : "Toon origineel"}</button>` : "") +
       (entry.untranslated ? `<p class="note">De vertaling van dit artikel volgt bij de volgende update; hieronder de originele tekst.</p>` : "") +
       paragraphsHtml(paras);

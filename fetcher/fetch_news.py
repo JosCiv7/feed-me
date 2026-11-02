@@ -19,6 +19,7 @@ from urllib.parse import urlparse
 import articles
 import neutral
 import search
+import summary
 import translate
 import vault
 from sources import SOURCES, BLOCKED_DOMAINS, CLICKBAIT_PATTERNS, INTEREST_BOOST
@@ -446,6 +447,8 @@ def main():
                 else:
                     entry["untranslated"] = True
                     pending += 1
+            if not entry.get("untranslated"):
+                entry["s"] = summary.summarize(entry["p"], it["title"])
             texts[str(a["id"])] = entry
     if tr:
         tr.save()
