@@ -147,6 +147,7 @@ def parse_feed(raw):
         if not title or not link:
             continue
         desc = clean_text(tag(b, "description", "summary", "content:encoded", "content"))
+        desc = re.sub(r"\s*The post .* appeared first on .*$", "", desc)  # WordPress-voetnoot
         items.append({
             "title": title,
             "link": link,
@@ -295,6 +296,8 @@ def build_story(group, src_by_id, now):
         "lang": src_by_id[lead["source"]]["lang"],
         "published": newest.isoformat(),
         "sections": sorted(sections),
+        # rubriek-label volgt het hoofdartikel, niet de som van alle bronnen
+        "kicker": next((s for s in ("brussel", "belgie", "tech", "wereld") if s in lead["sections"]), None),
         "score": round(score, 4),
         "leans": leans,
         "blindspot": blindspot,

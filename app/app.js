@@ -75,7 +75,7 @@ function kickerHtml(story) {
   const tags = [];
   if (story.blindspot) tags.push(`<span class="tag blind">Blinde vlek · ${esc(story.blindspot)}</span>`);
   if (state.tab === "voorjou") {
-    const sec = ["brussel", "belgie", "tech", "wereld"].find((s) => story.sections.includes(s));
+    const sec = story.kicker || ["brussel", "belgie", "tech", "wereld"].find((s) => story.sections.includes(s));
     if (sec) tags.push(`<span class="tag">${SECTION_NAMES[sec]}</span>`);
   }
   return tags.length ? `<div class="kicker">${tags.join("")}</div>` : "";
