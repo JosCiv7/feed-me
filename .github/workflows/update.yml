@@ -3,7 +3,8 @@ name: Nieuws bijwerken
 
 on:
   schedule:
-    - cron: "*/30 * * * *"
+    # niet op :00 en :30: dan is GitHub het drukst en slaat het geplande taken vaak over
+    - cron: "13,43 * * * *"
   workflow_dispatch:
   push:
     branches: [main]

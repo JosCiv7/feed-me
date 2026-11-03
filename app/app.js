@@ -50,15 +50,24 @@ function timeAgo(iso) {
   if (h < 24) return `${h} u`;
   return `${Math.round(h / 24)} d`;
 }
+function updatedAgo() {
+  const ago = timeAgo(state.data.generated);
+  return ago === "zonet" ? ago : `${ago} geleden`;
+}
 const clock = (iso) => new Date(iso).toLocaleTimeString("nl-BE", { hour: "2-digit", minute: "2-digit" });
 
 // --- data ---
-async function fetchNews() {
+async function downloadNews() {
   const res = await fetch(`data/news.json?t=${Date.now()}`, { cache: "no-store" });
   if (!res.ok) throw new Error(res.status);
-  state.data = await res.json();
-  state.sources = Object.fromEntries(state.data.sources.map((s) => [s.id, s]));
+  return res.json();
 }
+function useNews(data) {
+  state.data = data;
+  state.sources = Object.fromEntries(data.sources.map((s) => [s.id, s]));
+  hideNewsBar();
+}
+const fetchNews = async () => useNews(await downloadNews());
 
 const src = (id) => state.sources[id] || { name: id };
 const sourceCount = (story) => new Set(story.articles.map((a) => a.source)).size;
@@ -148,7 +157,7 @@ function block(title, sub, inner, sec) {
 // --- voorpagina ---
 function dateline() {
   const today = new Date().toLocaleDateString("nl-BE", { weekday: "long", day: "numeric", month: "long" });
-  return `<div class="dateline"><b>${today[0].toUpperCase() + today.slice(1)}</b><span>Bijgewerkt ${timeAgo(state.data.generated)} geleden</span></div>`;
+  return `<div class="dateline"><b>${today[0].toUpperCase() + today.slice(1)}</b><span>Bijgewerkt ${updatedAgo()}</span></div>`;
 }
 
 function picker(used) {
@@ -486,12 +495,50 @@ window.addEventListener("hashchange", () => {
   route();
 });
 
+// --- vernieuwen: de pagina verandert enkel als jij erop tikt ---
 const refreshBtn = document.getElementById("refresh");
+const newsBar = document.getElementById("newsbar");
+let pending = null, lastCheck = Date.now(), toastTimer;
+
+function toast(text) {
+  const el = document.getElementById("toast");
+  el.textContent = text;
+  el.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.hidden = true; }, 3500);
+}
+function hideNewsBar() { pending = null; newsBar.hidden = true; }
+function showNews(data) {
+  const before = state.data && state.data.generated;
+  useNews(data);
+  render();
+  if (!location.hash.startsWith("#lees/")) window.scrollTo(0, 0);
+  if (state.password && state.data.texts) ensureTexts().catch(() => {});
+  if (data.generated === before) toast(`Je hebt al het nieuwste nieuws (bijgewerkt ${updatedAgo()})`);
+}
+
 refreshBtn.addEventListener("click", async () => {
   refreshBtn.classList.add("spin");
-  try { await fetchNews(); render(); } catch { alert("Vernieuwen lukt niet. Ben je online?"); }
+  try { showNews(pending || await downloadNews()); } catch { toast("Vernieuwen lukt niet. Ben je online?"); }
   refreshBtn.classList.remove("spin");
 });
+newsBar.addEventListener("click", () => { if (pending) showNews(pending); });
+
+// terug in de app (of elke 10 min als ze openstaat): stil nagaan of er nieuwer nieuws is en dat enkel melden
+async function checkForNews() {
+  if (!state.data || document.hidden || Date.now() - lastCheck < 5 * 60000) return;
+  lastCheck = Date.now();
+  try {
+    const data = await downloadNews();
+    if (data.generated > state.data.generated) {
+      pending = data;
+      newsBar.querySelector("b").textContent = "Nieuw nieuws beschikbaar";
+      newsBar.hidden = false;
+    }
+  } catch {}
+}
+document.addEventListener("visibilitychange", checkForNews);
+setInterval(checkForNews, 10 * 60000);
 
 // --- start ---
 (async function init() {

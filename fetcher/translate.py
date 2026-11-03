@@ -66,6 +66,13 @@ def _install(src, tgt):
                 target.write_bytes(z.read(name))
 
 
+def tidy(text):
+    """Herstel de typische haperingen van het vertaalmodel (bv. "EU......" met tientallen puntjes)."""
+    text = re.sub(r"\.{4,}", "…", text)
+    text = re.sub(r"(\W)\1{3,}", r"\1", text)  # andere eindeloos herhaalde leestekens
+    return re.sub(r"\s{2,}", " ", text).strip()
+
+
 class Translator:
     def __init__(self):
         self.cache = json.loads(CACHE_FILE.read_text("utf-8")) if CACHE_FILE.exists() else {}
@@ -112,7 +119,7 @@ class Translator:
             for t, r in zip(todo, result):
                 self.cache[f"{lang}|{t}"] = r
         self.used.update(keys)
-        return [self.cache.get(k, t) if t else t for t, k in zip(texts, keys)]
+        return [tidy(self.cache.get(k, t)) if t else t for t, k in zip(texts, keys)]
 
     def save(self):
         CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)

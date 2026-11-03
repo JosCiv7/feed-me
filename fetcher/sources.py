@@ -10,7 +10,7 @@ Dit zijn VOORSTELLEN op basis van algemene reputatie, geen objectieve waarheid.
 kind:
     "be"      = Belgische algemene nieuwsbron
     "brussel" = Brusselse lokale bron
-    "spanje"  = Spaanse bron (komt in de rubriek Spanje)
+    "spanje"  = Spaanse bron (binnenlands nieuws komt in Spanje, buitenlands nieuws in Wereld)
     "tech"    = technologie
     "world"   = buitenlandse (lokale) bron
 
@@ -102,6 +102,21 @@ CLICKBAIT_PATTERNS = [
     r"!!|[\U0001F600-\U0001F64F\U0001F525\U0001F631]",
 ]
 
+# --- Spaanse bronnen: de rubriek staat in het webadres (elpais.com/internacional/...) ---
+# Zo komt enkel nieuws óver Spanje in de rubriek Spanje. Rubrieken die hier niet staan tellen als Spaans nieuws.
+SPAIN_PATH_SECTIONS = {
+    "internacional": "wereld", "mundo": "wereld", "america": "wereld", "us": "wereld", "latinoamerica": "wereld",
+    "tecnologia": "tech", "ciencia": "wetenschap",
+}
+# staat er een ander land in de (Spaanse) titel en niets over Spanje, dan is het buitenlands nieuws
+SPAIN_FOREIGN = (r"ee\.? ?uu\.?|estados unidos|trump|rusia|ucrania|putin|israel|gaza|irán|china|méxico|sheinbaum"
+                 r"|francia|alemania|italia|reino unido|londres|parís|nueva york|venezuela|argentina|brasil|colombia")
+# winkeltips, roddels en lifestyle: geen nieuws, dus overslaan
+SPAIN_SKIP_PATHS = {
+    "comprar", "compras", "ofertas-descuentos", "escaparate", "gente", "television", "cinemania", "mujer",
+    "gastronomia", "viajes", "fotos", "play", "spin", "estilo", "moda", "horoscopo", "recetas", "bienestar", "loc",
+}
+
 # --- Interesses: welke rubrieken krijgen voorrang in "Voor jou" ---
 INTEREST_BOOST = {
     "brussel": 1.6, "belgie": 1.35, "tech": 1.35, "spanje": 1.3, "europa": 1.15,
@@ -113,7 +128,7 @@ INTEREST_BOOST = {
 # of als er minstens twee verschillende in de samenvatting staan.
 TOPICS = {
     "spanje": r"spanje|spaans\w*|madrid\w*|barcelona|catalon\w*|catala\w*|andalus\w*|valencia\w*|sevilla|bilbao|baskisch\w*"
-              r"|mallorca|canarische|ibiza|málaga|malaga|sánchez|feijóo|psoe|espagne|spain|spanish",
+              r"|mallorca|canarische|ibiza|málaga|malaga|sánchez|feijóo|psoe|espagne|spain|spanish|españa|español\w*",
     "europa": r"europese (commissie|unie|raad|centrale bank)|europees parlement|eu-\w+|eu|von der leyen|kallas|eurozone"
               r"|schengen|europarlement\w*|commission européenne|union européenne|european commission|european union",
     "conflicten": r"oorlog\w*|oekraïn\w*|ukrain\w*|kyiv|kiev|kremlin|gaza|hamas|hezbollah|westelijke jordaanoever|west bank"

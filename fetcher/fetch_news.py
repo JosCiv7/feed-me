@@ -22,7 +22,8 @@ import search
 import summary
 import translate
 import vault
-from sources import SOURCES, BLOCKED_DOMAINS, CLICKBAIT_PATTERNS, INTEREST_BOOST, TOPICS
+from sources import (SOURCES, BLOCKED_DOMAINS, CLICKBAIT_PATTERNS, INTEREST_BOOST, TOPICS,
+                     SPAIN_FOREIGN, SPAIN_PATH_SECTIONS, SPAIN_SKIP_PATHS)
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT_FILE = ROOT / "app" / "data" / "news.json"
@@ -37,6 +38,7 @@ SIM_THRESHOLD = 0.3         # hoe gelijkaardig twee titels moeten zijn om hetzel
 
 CLICKBAIT_RE = [re.compile(p, re.I) for p in CLICKBAIT_PATTERNS]
 TOPIC_RE = {t: re.compile(rf"\b({p})\b", re.I) for t, p in TOPICS.items()}
+SPAIN_FOREIGN_RE = re.compile(rf"\b({SPAIN_FOREIGN})(?!\w)", re.I)
 # volgorde voor het label boven een verhaal: eerst plaats, dan onderwerp
 KICKER_ORDER = ("brussel", "belgie", "spanje", "europa", "conflicten", "economie", "wetenschap", "mobiliteit", "tech", "wereld")
 
@@ -213,7 +215,12 @@ def sections_for(item, src):
     elif src["kind"] == "world":
         secs.add("wereld")
     elif src["kind"] == "spanje":
-        secs.add("spanje")
+        path = urlparse(item["link"]).path.strip("/").split("/")[0].lower()
+        sec = SPAIN_PATH_SECTIONS.get(path, "spanje")
+        if sec == "spanje" and SPAIN_FOREIGN_RE.search(item["title"]) and not TOPIC_RE["spanje"].search(item["title"]):
+            sec = "wereld"
+        if path not in SPAIN_SKIP_PATHS:
+            secs.add(sec)
     return secs
 
 
