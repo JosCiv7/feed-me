@@ -509,17 +509,113 @@ function toast(text) {
 }
 function hideNewsBar() { pending = null; newsBar.hidden = true; }
 function showNews(data) {
-  const before = state.data && state.data.generated;
   useNews(data);
   render();
   if (!location.hash.startsWith("#lees/")) window.scrollTo(0, 0);
   if (state.password && state.data.texts) ensureTexts().catch(() => {});
-  if (data.generated === before) toast(`Je hebt al het nieuwste nieuws (bijgewerkt ${updatedAgo()})`);
+}
+const ageMin = () => (Date.now() - new Date(state.data.generated)) / 60000;
+
+// --- zelf een update starten bij GitHub (GitHub slaat zijn eigen planning vaak urenlang over) ---
+const REPO = "JosCiv7/feed-me";
+const UPDATE_MIN = 8;  // zo lang duurt een update ongeveer
+const sheet = document.getElementById("sheet");
+
+async function github(path, token, options = {}) {
+  return fetch(`https://api.github.com/repos/${REPO}${path}`, {
+    ...options,
+    headers: { Accept: "application/vnd.github+json", Authorization: `Bearer ${token}`, ...(options.headers || {}) },
+  });
 }
 
+async function startUpdate() {
+  const token = load("ghtoken", null);
+  if (!token) { openSheet(); return; }
+  // loopt er al een update? dan niet nog een starten, gewoon wachten
+  let running = false;
+  try {
+    const res = await github("/actions/runs?per_page=5", token);
+    if (res.status === 401 || res.status === 403) throw new Error("sleutel");
+    const runs = (await res.json()).workflow_runs || [];
+    running = runs.some((r) => r.status !== "completed");
+  } catch (e) {
+    if (e.message === "sleutel") { save("ghtoken", null); openSheet("Die sleutel werkt niet (meer). Maak een nieuwe aan."); return; }
+  }
+  if (!running) {
+    const res = await github("/actions/workflows/update.yml/dispatches", token, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ref: "main" }) });
+    if (res.status === 401 || res.status === 403 || res.status === 404) {
+      save("ghtoken", null);
+      openSheet("Die sleutel mag geen updates starten. Kijk na of je bij Actions 'Read and write' koos.");
+      return;
+    }
+    if (!res.ok) throw new Error(res.status);
+  }
+  save("waiting", Date.now());
+  toast(`Nieuws wordt opgehaald. Binnen ±${UPDATE_MIN} minuten verschijnt bovenaan een melding.`);
+  watchUpdate();
+}
+
+// tijdens het wachten elke 30 s kijken of het nieuwe nieuws er is
+let watchTimer = null;
+function watchUpdate() {
+  clearInterval(watchTimer);
+  refreshBtn.classList.add("busy");
+  watchTimer = setInterval(async () => {
+    const since = load("waiting", 0);
+    if (Date.now() - since > 25 * 60000) { stopWatching(); return; }
+    if (document.hidden) return;
+    try {
+      const data = await downloadNews();
+      if (data.generated > state.data.generated && new Date(data.generated) > since - 60000) { stopWatching(); offerNews(data); }
+    } catch {}
+  }, 30000);
+}
+function stopWatching() {
+  clearInterval(watchTimer);
+  save("waiting", 0);
+  refreshBtn.classList.remove("busy");
+}
+
+function offerNews(data) {
+  pending = data;
+  newsBar.querySelector("b").textContent = "Nieuw nieuws beschikbaar";
+  newsBar.hidden = false;
+}
+
+function openSheet(error) {
+  sheet.querySelector(".err").textContent = error || "";
+  sheet.querySelector("input").value = "";
+  sheet.hidden = false;
+}
+sheet.addEventListener("click", (e) => {
+  if (e.target === sheet || e.target.closest("[data-close]")) sheet.hidden = true;
+});
+sheet.querySelector("form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const token = sheet.querySelector("input").value.trim();
+  if (!token) return;
+  save("ghtoken", token);
+  sheet.hidden = true;
+  refreshBtn.click();
+});
+
 refreshBtn.addEventListener("click", async () => {
+  if (refreshBtn.classList.contains("spin")) return;
   refreshBtn.classList.add("spin");
-  try { showNews(pending || await downloadNews()); } catch { toast("Vernieuwen lukt niet. Ben je online?"); }
+  try {
+    const data = pending || await downloadNews();
+    if (data.generated > state.data.generated) {
+      showNews(data);
+    } else if (load("waiting", 0)) {
+      toast("Het nieuws wordt nog opgehaald. Je krijgt bovenaan een melding als het klaar is.");
+    } else if (ageMin() < 20) {
+      toast(`Je hebt het nieuwste nieuws (bijgewerkt ${updatedAgo()})`);
+    } else {
+      await startUpdate();
+    }
+  } catch {
+    toast("Vernieuwen lukt niet. Ben je online?");
+  }
   refreshBtn.classList.remove("spin");
 });
 newsBar.addEventListener("click", () => { if (pending) showNews(pending); });
@@ -530,15 +626,12 @@ async function checkForNews() {
   lastCheck = Date.now();
   try {
     const data = await downloadNews();
-    if (data.generated > state.data.generated) {
-      pending = data;
-      newsBar.querySelector("b").textContent = "Nieuw nieuws beschikbaar";
-      newsBar.hidden = false;
-    }
+    if (data.generated > state.data.generated) offerNews(data);
   } catch {}
 }
 document.addEventListener("visibilitychange", checkForNews);
 setInterval(checkForNews, 10 * 60000);
+if (load("waiting", 0)) watchUpdate();  // na herstarten van de app verder wachten
 
 // --- start ---
 (async function init() {

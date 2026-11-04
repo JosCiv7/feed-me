@@ -17,6 +17,12 @@ De volledige teksten van andere media staan versleuteld online, zodat enkel jij 
 Het wachtwoord staat in **Feed Me wachtwoord.txt** (enkel op je pc, wordt nooit online gezet) en in GitHub
 als geheim `FEEDME_KEY` (Settings → Secrets and variables → Actions).
 
+## Zelf nieuw nieuws ophalen
+
+GitHub slaat zijn geplande updates soms urenlang over. Is het nieuws ouder dan 20 minuten, dan start de
+vernieuwknop zelf een update (± 8 minuten). Daarvoor vraagt de app één keer een GitHub-sleutel
+(fine-grained token, enkel voor `feed-me`, met als enige recht *Actions: Read and write*). Die blijft enkel op je toestel.
+
 ## Starten op je pc
 
 Dubbelklik op **Feed Me starten.bat**. Die haalt het nieuws op, leest en vertaalt de artikels en opent de app in je browser.

@@ -41,6 +41,24 @@
   <button id="newsbar" class="newsbar" hidden><b>Nieuw nieuws</b><span>Tik om te vernieuwen</span></button>
   <div id="toast" class="toast" role="status" hidden></div>
 
+  <div id="sheet" class="sheet" hidden>
+    <form class="box">
+      <p><b>Zelf nieuw nieuws laten ophalen</b></p>
+      <p>GitHub slaat zijn vaste updates soms urenlang over. Met een sleutel kan deze knop zelf een update starten (± 8 minuten). Je doet dit maar één keer:</p>
+      <ol>
+        <li>Open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">deze GitHub-pagina</a> en meld je aan.</li>
+        <li>Naam: <i>Feed Me</i>. Vervaldatum: zo lang mogelijk.</li>
+        <li>Bij <i>Repository access</i>: <i>Only select repositories</i> → <i>feed-me</i>.</li>
+        <li>Bij <i>Permissions</i>: <i>Actions</i> → <i>Read and write</i>. Verder niets.</li>
+        <li>Tik op <i>Generate token</i>, kopieer de sleutel en plak hem hieronder.</li>
+      </ol>
+      <p class="why">De sleutel blijft enkel op dit toestel en kan alleen updates van Feed Me starten.</p>
+      <input type="password" autocomplete="off" placeholder="github_pat_…" aria-label="GitHub-sleutel">
+      <p class="err"></p>
+      <button class="btn" type="submit">Opslaan en nieuws ophalen</button><button class="btn ghost" type="button" data-close>Later</button>
+    </form>
+  </div>
+
   <main id="feed" aria-live="polite">
     <p class="status">Nieuws laden…</p>
   </main>
