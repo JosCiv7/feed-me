@@ -633,6 +633,26 @@ document.addEventListener("visibilitychange", checkForNews);
 setInterval(checkForNews, 10 * 60000);
 if (load("waiting", 0)) watchUpdate();  // na herstarten van de app verder wachten
 
+// --- installeren als echte app: Chrome geeft dit signaal zolang de app nog niet geïnstalleerd is ---
+const installBtn = document.getElementById("install");
+let installPrompt = null;
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  installPrompt = e;
+  installBtn.hidden = false;
+});
+installBtn.addEventListener("click", async () => {
+  if (!installPrompt) return;
+  installPrompt.prompt();
+  await installPrompt.userChoice;
+  installPrompt = null;
+  installBtn.hidden = true;
+});
+window.addEventListener("appinstalled", () => {
+  installBtn.hidden = true;
+  toast("Feed Me staat nu als app tussen je apps.");
+});
+
 // --- start ---
 (async function init() {
   state.tab = load("tab", "voorjou");

@@ -8,7 +8,8 @@ meest neutrale versie volledig in de app, met een korte samenvatting in bullets.
 
 ## Op je Android installeren
 
-Open het adres hierboven in Chrome, tik op ⋮ en kies **App installeren** (of **Toevoegen aan startscherm**).
+Open het adres hierboven in Chrome en tik bovenaan op **Installeer app** (of tik op ⋮ en kies **App installeren**; bij
+**Toevoegen aan startscherm** kies je **Installeren**, niet **Snelkoppeling maken**). Feed Me verschijnt dan tussen je apps. Je wachtwoord blijft bewaard.
 Open een artikel en geef één keer je wachtwoord in (zie hieronder) om de volledige teksten te lezen.
 
 ## Wachtwoord voor de volledige artikels
