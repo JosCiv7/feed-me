@@ -15,8 +15,9 @@ Open een artikel en geef één keer je wachtwoord in (zie hieronder) om de volle
 ## Wachtwoord voor de volledige artikels
 
 De volledige teksten van andere media staan versleuteld online, zodat enkel jij ze kan lezen.
-Het wachtwoord staat in **Feed Me wachtwoord.txt** (enkel op je pc, wordt nooit online gezet) en in GitHub
-als geheim `FEEDME_KEY` (Settings → Secrets and variables → Actions).
+Het wachtwoord staat enkel op je pc (nooit online) en in GitHub als geheim `FEEDME_KEY`
+(Settings → Secrets and variables → Actions). De app zegt nergens waar het te vinden is.
+Laat Chrome het bewaren wanneer je het de eerste keer ingeeft; dan vult Chrome het voortaan zelf in.
 
 ## Zelf nieuw nieuws ophalen
 

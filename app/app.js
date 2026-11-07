@@ -360,8 +360,9 @@ function noTextHtml(story, a) {
 function lockHtml(error) {
   return `<form class="box" id="pw-form">
     <p><b>Volledig artikel lezen</b></p>
-    <p class="why">De volledige artikels zijn beveiligd met je eigen wachtwoord. Je vindt het in het bestand "Feed Me wachtwoord.txt" op je pc. Je hoeft het maar één keer in te geven.</p>
-    <input type="password" id="pw-input" autocomplete="current-password" placeholder="Wachtwoord" required>
+    <p class="why">De volledige artikels zijn beveiligd met een wachtwoord. Je hoeft het maar één keer in te geven.</p>
+    <input type="text" name="username" value="Feed Me" autocomplete="username" hidden>
+    <input type="password" id="pw-input" name="password" autocomplete="current-password" placeholder="Wachtwoord" required>
     ${error ? `<p class="err">${esc(error)}</p>` : ""}
     <button class="btn" type="submit">Openen</button>
   </form>`;
