@@ -22,7 +22,7 @@ import search
 import summary
 import translate
 import vault
-from sources import (SOURCES, BLOCKED_DOMAINS, CLICKBAIT_PATTERNS, INTEREST_BOOST, TOPICS,
+from sources import (SOURCES, LANGUAGES, BLOCKED_DOMAINS, CLICKBAIT_PATTERNS, INTEREST_BOOST, TOPICS,
                      SPAIN_FOREIGN, SPAIN_PATH_SECTIONS, SPAIN_SKIP_PATHS)
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -33,7 +33,7 @@ USER_AGENT = "Mozilla/5.0 (Feed Me persoonlijke nieuwslezer)"
 MAX_AGE_HOURS = 36
 MAX_ITEMS_PER_SOURCE = 40   # zodat één drukke bron de rest niet overspoelt
 MAX_PAGE_FETCHES = 500      # nieuwe artikelpagina's per run
-TRANSLATE_SECONDS = 300     # tijd voor het vertalen van volledige teksten per run
+TRANSLATE_SECONDS = 300     # tijd voor het vertalen van volledige teksten per run (alle talen uit LANGUAGES samen; de rest volgt later)
 SIM_THRESHOLD = 0.3         # hoe gelijkaardig twee titels moeten zijn om hetzelfde nieuwsfeit te zijn
 
 CLICKBAIT_RE = [re.compile(p, re.I) for p in CLICKBAIT_PATTERNS]
@@ -290,6 +290,11 @@ def cluster(items):
     return list(groups.values())
 
 
+def multi(it):
+    """Titel en samenvatting per taal; enkel nodig als er meer dan één leestaal is (anders volstaan title/orig_title)."""
+    return {"t": it["t"], "s": it["s"]} if len(LANGUAGES) > 1 else {}
+
+
 def build_story(group, src_by_id, now):
     # Getoonde versie: de meest neutrale (zie neutral.py); bij gelijke stand die met foto, dan de nieuwste
     group.sort(key=lambda it: (it["neutral"], bool(it["image"]), it["published"]), reverse=True)
@@ -307,24 +312,19 @@ def build_story(group, src_by_id, now):
         lean = src_by_id[it["source"]]["lean"]
         if lean:
             leans[lean] = leans.get(lean, 0) + 1
-    left = leans.get("L", 0) + leans.get("CL", 0)
-    right = leans.get("R", 0) + leans.get("CR", 0)
-    labeled = sum(leans.values())
-    blindspot = None
-    if labeled >= 3 and left / labeled >= 0.8:
-        blindspot = "vooral links"
-    elif labeled >= 3 and right / labeled >= 0.8:
-        blindspot = "vooral rechts"
+    blindspot = neutral.blindspot(leans)  # "left", "right" of None; de app toont het in de gekozen taal
 
     newest = max(it["published"] for it in group)
     age_h = (now - newest).total_seconds() / 3600
     n_sources = len({it["source"] for it in group})
     boost = max(INTEREST_BOOST.get(s, 1.0) for s in sections) if sections else 1.0
-    score = (1 + 1.5 * math.log2(1 + n_sources)) * math.exp(-age_h / 14) * boost
+    # base = zonder voorrang per rubriek: de app rekent die zelf, volgens wat je in de instellingen aan- of uitzet
+    base = (1 + 1.5 * math.log2(1 + n_sources)) * math.exp(-age_h / 14)
+    score = base * boost
 
     arts = [{
         "id": it["id"], "source": it["source"], "title": it["title"], "orig_title": it.get("orig_title"),
-        "summary": it["summary"], "image": it["image"], "link": it["link"], "published": it["published"].isoformat(),
+        "summary": it["summary"], "lang": src_by_id[it["source"]]["lang"], **multi(it), "image": it["image"], "link": it["link"], "published": it["published"].isoformat(),
         "text": bool(it["text_orig"]), "why": it["why"], "words": it["words"], "loaded": it["loaded"],
         "opinion": it["opinion"], "live": it["live"], "neutral": it["neutral"], "found": it.get("found"),
     } for it in group]  # eerste = gekozen versie, daarna de rest van meest naar minst neutraal
@@ -334,6 +334,7 @@ def build_story(group, src_by_id, now):
         "title": lead["title"],
         "orig_title": lead.get("orig_title"),
         "summary": lead["summary"],
+        **multi(lead),
         "image": lead["image"] or next((it["image"] for it in group if it["image"]), ""),
         "link": lead["link"],
         "source": lead["source"],
@@ -343,6 +344,7 @@ def build_story(group, src_by_id, now):
         # rubriek-label volgt het hoofdartikel, niet de som van alle bronnen
         "kicker": next((s for s in KICKER_ORDER if s in lead["sections"]), None),
         "score": round(score, 4),
+        "base": round(base, 4),
         "leans": leans,
         "blindspot": blindspot,
         "why_pick": neutral.reasons(arts[0], src_by_id[lead["source"]], len(group) - 1),
@@ -456,6 +458,29 @@ def main():
         group.append(it)
         items.append(it)
 
+    # Titels en samenvattingen in alle leestalen (LANGUAGES in sources.py; standaard enkel Nederlands)
+    t0 = time.time()
+    for it in items:
+        lang = src_by_id[it["source"]]["lang"]
+        it["t"] = {lang: it.get("orig_title") or it["title"], "nl": it["title"]}
+        it["s"] = {lang: it.get("orig_summary") or it["summary"], "nl": it["summary"]}
+        if lang != "nl" and not it.get("orig_title"):  # niet vertaald (geen vertaler): geen valse "nl"-versie
+            del it["t"]["nl"], it["s"]["nl"]
+    if tr:
+        for target in LANGUAGES:
+            by_lang = {}
+            for it in items:
+                lang = src_by_id[it["source"]]["lang"]
+                if target not in it["t"] and (lang, target) in translate.PATHS:
+                    by_lang.setdefault(lang, []).append(it)
+            for lang, todo in by_lang.items():
+                titles = tr.translate([it["t"][lang] for it in todo], lang, target)
+                sums = tr.translate([it["s"][lang] for it in todo], lang, target)
+                for it, t, sm in zip(todo, titles, sums):
+                    it["t"][target], it["s"][target] = t, sm
+        if len(LANGUAGES) > 1:
+            print(f"Titels in {'/'.join(l.upper() for l in LANGUAGES)} in {time.time() - t0:.0f}s")
+
     stories = [build_story(g, src_by_id, now) for g in groups]
     stories.sort(key=lambda s: s["score"], reverse=True)
 
@@ -463,25 +488,25 @@ def main():
     by_id = {it["id"]: it for it in items}
     texts, pending = {}, 0
     t0 = time.time()
-    for story in stories:
-        for a in story["articles"]:
-            it = by_id[a["id"]]
-            if not it["text_orig"]:
-                continue
-            lang = src_by_id[it["source"]]["lang"]
-            entry = {"p": it["text_orig"]}
-            if lang in translate.ROUTES and tr:
-                if tr.has(it["text_orig"], lang) or time.time() - t0 < TRANSLATE_SECONDS:
-                    entry = {"p": tr.translate(it["text_orig"], lang), "o": it["text_orig"]}
-                else:
-                    entry["untranslated"] = True
-                    pending += 1
-            if not entry.get("untranslated"):
-                entry["s"] = summary.summarize(entry["p"], it["title"])
-            texts[str(a["id"])] = entry
+    # eerst alles naar het Nederlands, dan de andere talen; wat niet meer past, volgt bij een volgende update
+    for target in LANGUAGES:
+        for story in stories:
+            for a in story["articles"]:
+                it = by_id[a["id"]]
+                if not it["text_orig"]:
+                    continue
+                lang = src_by_id[it["source"]]["lang"]
+                entry = texts.setdefault(str(a["id"]), {"l": lang, "o": it["text_orig"], "p": {lang: it["text_orig"]}, "s": {}})
+                if target != lang and tr and (lang, target) in translate.PATHS:
+                    if tr.has(it["text_orig"], lang, target, "long") or time.time() - t0 < TRANSLATE_SECONDS:
+                        entry["p"][target] = tr.translate(it["text_orig"], lang, target, "long")
+                    else:
+                        pending += 1
+                if target in entry["p"]:
+                    entry["s"][target] = summary.summarize(entry["p"][target], it["t"].get(target, it["title"]))
     if tr:
         tr.save()
-        print(f"Volledige teksten vertaald in {time.time() - t0:.0f}s" + (f" ({pending} volgen bij de volgende update)" if pending else ""))
+        print(f"Volledige teksten vertaald in {time.time() - t0:.0f}s" + (f" ({pending} vertalingen volgen bij de volgende update)" if pending else ""))
 
     OUT_FILE.parent.mkdir(parents=True, exist_ok=True)
     sealed = vault.seal(texts, TEXTS_FILE)
@@ -495,6 +520,8 @@ def main():
         "sources": [{k: s[k] for k in ("id", "name", "lang", "country", "kind", "lean")} | status.get(s["id"], {}) for s in SOURCES]
                    + list(web_sources.values()),
         "rules": {"blocked": BLOCKED_DOMAINS},
+        "boosts": INTEREST_BOOST,
+        "langs": list(LANGUAGES),
         "stories": stories,
     }, ensure_ascii=False), "utf-8")
 

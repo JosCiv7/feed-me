@@ -1,5 +1,5 @@
 // Alles eerst van het netwerk (zo komen updates meteen door); offline de laatst bewaarde versie.
-const CACHE = "feedme-v8";
+const CACHE = "feedme-v9";
 const SHELL = ["./", "index.html", "style.css", "app.js", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png", "icons/maskable-192.png", "icons/maskable-512.png"];
 
 self.addEventListener("install", (e) => {

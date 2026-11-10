@@ -30,13 +30,41 @@ vernieuwknop zelf een update (± 8 minuten). Daarvoor vraagt de app één keer e
 Dubbelklik op **Feed Me starten.bat**. Die haalt het nieuws op, leest en vertaalt de artikels en opent de app in je browser.
 De eerste keer installeert hij de vertaler en downloadt hij de vertaalmodellen (± 170 MB).
 
+## Instellingen: rubrieken
+
+Het knopje met de schuifjes rechtsboven opent de instellingen. Je keuzes worden enkel op dat toestel bewaard.
+- **Rubrieken:** elke rubriek aan of uit; met de ster krijgt een rubriek extra voorrang in "Voor jou".
+- **Taal (staat uit):** Feed Me vertaalt enkel naar het Nederlands, zodat een update snel blijft. Zet je in
+  `fetcher/sources.py` bij `LANGUAGES` ook `"fr"` of `"en"`, dan verschijnt in de instellingen een taalkeuze en wordt
+  alles ook naar die taal vertaald (de app zelf is al vertaald). Dat kost extra vertaaltijd per update.
+
+## Betere vertaling (optioneel, op je eigen pc)
+
+Online gebruikt Feed Me de kleine Argos-modellen. Op je pc kan je grotere modellen installeren met
+`python fetcher/get_models.py`; Feed Me gebruikt ze dan vanzelf. Gemeten op 36 zinnen in alle richtingen tussen
+Nederlands, Frans en Engels (chrF, hoger = beter); een deel van die zinnen staat in `tests/vertaling/testset.json`:
+
+| motor | kwaliteit | snelheid | gebruikt voor |
+|---|---|---|---|
+| Argos | 65.6 | snel | standaard (ook online) |
+| OPUS-MT tc-big (± 700 MB) | 67.2 | ± 10 zinnen/s | volledige artikels |
+| MADLAD-400 3B (± 3 GB) | 73.0 | ± 1.4 zinnen/s | titels en samenvattingen |
+
+Zelf testen: `python tests/vertaling/evalueer.py`. Motor kiezen: `FEEDME_TRANSLATOR` (titels) en
+`FEEDME_TRANSLATOR_TEXTS` (artikels) op `argos`, `tcbig` of `madlad`.
+
+## Links/rechts en toon
+
+Hoe de politieke labels en de toonanalyse werken en waartegen ze nagekeken zijn, staat in `tests/links-rechts.md`.
+Testgevallen: `python -m unittest discover tests`.
+
 ## Hoe het werkt
 
 - `fetcher/sources.py`: de bronnenlijst, politieke labels, geweerde sensatiemedia en klikaas-filters. Hier pas je alles aan.
 - `fetcher/fetch_news.py`: haalt de RSS-feeds op, filtert, vertaalt, groepeert per nieuwsfeit en schrijft `app/data/news.json`.
 - `fetcher/articles.py`: haalt de volledige tekst van elk artikel op. Betaal- en loginmuren worden gerespecteerd.
 - `fetcher/neutral.py`: kiest per nieuwsfeit de meest neutrale versie (bron, volledige tekst, geladen woorden, opinie of niet).
-- `fetcher/translate.py`: offline vertaling met de open-source modellen van Argos Translate (geen account of betaling nodig).
+- `fetcher/translate.py`: offline vertaling (Argos, of de grotere modellen als die geïnstalleerd zijn; geen account of betaling nodig).
 - `fetcher/search.py`: zoekt een gratis versie van nieuws dat enkel achter een betaalmuur staat.
 - `fetcher/summary.py`: maakt de korte samenvatting (de belangrijkste zinnen uit het artikel zelf).
 - `fetcher/vault.py`: versleutelt de volledige teksten met je wachtwoord (`app/data/texts.bin`).

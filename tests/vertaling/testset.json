@@ -1,0 +1,207 @@
+{
+ "uitleg": "Testset voor de vertaling: titels uit het nieuws van 10 november 2026 en eigen voorbeeldzinnen, met de hand vertaald. 'names' = namen en termen die onvertaald moeten blijven.",
+ "items": [
+  {
+   "src": "nl",
+   "text": "‘Onderzoek VS naar AI-chipsmokkel Megaspeed ging op pauze na mail Nvidia-jurist’",
+   "en": "'US investigation into Megaspeed AI chip smuggling was paused after email from Nvidia lawyer'",
+   "fr": "« L'enquête américaine sur la contrebande de puces IA de Megaspeed a été suspendue après un e-mail d'un juriste de Nvidia »",
+   "names": [
+    "Megaspeed",
+    "Nvidia"
+   ]
+  },
+  {
+   "src": "nl",
+   "text": "‘Een AI-agent is geen tool, het is een digitale immigrant’: historicus Harari zet CIO’s aan het denken op Gartner IT Symposium",
+   "en": "'An AI agent is not a tool, it is a digital immigrant': historian Harari gets CIOs thinking at Gartner IT Symposium",
+   "fr": "« Un agent IA n'est pas un outil, c'est un immigré numérique » : l'historien Harari fait réfléchir les DSI au Gartner IT Symposium",
+   "names": [
+    "Harari",
+    "Gartner"
+   ]
+  },
+  {
+   "src": "nl",
+   "text": "‘Ik heb zelfs overwogen om enkele jobs van mijn cv te schrappen.’ Werkgevers zien jobhoppers niet graag komen",
+   "en": "'I even considered removing some jobs from my CV.' Employers are not keen on job hoppers",
+   "fr": "« J'ai même envisagé de retirer certains emplois de mon CV. » Les employeurs n'apprécient guère les job-hoppers",
+   "names": []
+  },
+  {
+   "src": "nl",
+   "text": "Ooit op 1 na grootste bedrijf van Limburg, nu is Vynova failliet: \"Maar oorzaak is niet Limburgs\"",
+   "en": "Once the second-largest company in Limburg, Vynova is now bankrupt: \"But the cause doesn't lie in Limburg\"",
+   "fr": "Autrefois la deuxième plus grande entreprise du Limbourg, Vynova est aujourd'hui en faillite : « Mais la cause n'est pas limbourgeoise »",
+   "names": [
+    "Vynova"
+   ]
+  },
+  {
+   "src": "nl",
+   "text": "België: geen aanwijzingen dat Iran achter hack koelsystemen zit",
+   "en": "Belgium: no indication that Iran is behind hack of cooling systems",
+   "fr": "Belgique : aucun indice que l'Iran soit derrière le piratage de systèmes de refroidissement",
+   "names": []
+  },
+  {
+   "src": "nl",
+   "text": "Orange Belgium besteedt een deel van zijn IT-beheer uit aan Cegeka.",
+   "en": "Orange Belgium is outsourcing part of its IT management to Cegeka.",
+   "fr": "Orange Belgium externalise une partie de sa gestion informatique à Cegeka.",
+   "names": [
+    "Orange Belgium",
+    "Cegeka"
+   ]
+  },
+  {
+   "src": "nl",
+   "text": "Door de NIS2-richtlijn moeten kmo's hun cyberbeveiliging tegen eind 2026 op orde hebben.",
+   "en": "Under the NIS2 directive, SMEs must have their cybersecurity in order by the end of 2026.",
+   "fr": "En vertu de la directive NIS2, les PME doivent mettre leur cybersécurité en ordre d'ici fin 2026.",
+   "names": [
+    "NIS2",
+    "2026"
+   ]
+  },
+  {
+   "src": "fr",
+   "text": "Violences et harcèlement : une nouvelle boîte à outils disponible pour aider les employeurs des arts de la scène",
+   "nl": "Geweld en intimidatie: nieuwe toolbox beschikbaar om werkgevers in de podiumkunsten te helpen",
+   "en": "Violence and harassment: a new toolkit available to help employers in the performing arts",
+   "names": []
+  },
+  {
+   "src": "fr",
+   "text": "ESG : neuf PME sur dix passent à l’action, mais rarement avec leur banque",
+   "nl": "ESG: negen op de tien kmo's komen in actie, maar zelden samen met hun bank",
+   "en": "ESG: nine out of ten SMEs are taking action, but rarely with their bank",
+   "names": [
+    "ESG"
+   ]
+  },
+  {
+   "src": "fr",
+   "text": "Siemens envisage le rachat de Lauterbach pour rapprocher la vérification des puces et des logiciels",
+   "nl": "Siemens overweegt overname van Lauterbach om de verificatie van chips en software dichter bij elkaar te brengen",
+   "en": "Siemens considers acquiring Lauterbach to bring chip and software verification closer together",
+   "names": [
+    "Siemens",
+    "Lauterbach"
+   ]
+  },
+  {
+   "src": "fr",
+   "text": "La fin du Tesla Cybertruck actée pour 2027",
+   "nl": "Einde van de Tesla Cybertruck vastgelegd voor 2027",
+   "en": "End of the Tesla Cybertruck confirmed for 2027",
+   "names": [
+    "Tesla",
+    "Cybertruck",
+    "2027"
+   ]
+  },
+  {
+   "src": "fr",
+   "text": "“Il y a de nouveau un engouement pour la Bourse de Bruxelles” : comment expliquer la performance stratosphérique du Bel 20 ?",
+   "nl": "\"Er is opnieuw enthousiasme voor de Brusselse beurs\": hoe valt de torenhoge prestatie van de Bel 20 te verklaren?",
+   "en": "\"There is renewed enthusiasm for the Brussels stock exchange\": how to explain the Bel 20's stratospheric performance?",
+   "names": [
+    "Bel 20"
+   ]
+  },
+  {
+   "src": "fr",
+   "text": "Deux TPU pour la confidentialité et les traitements à grande échelle",
+   "nl": "Twee TPU's voor vertrouwelijkheid en verwerking op grote schaal",
+   "en": "Two TPUs for confidentiality and large-scale processing",
+   "names": [
+    "TPU"
+   ]
+  },
+  {
+   "src": "fr",
+   "text": "Ethias recrute des consultants SAP pour accompagner sa transformation numérique.",
+   "nl": "Ethias werft SAP-consultants aan om zijn digitale transformatie te begeleiden.",
+   "en": "Ethias is recruiting SAP consultants to support its digital transformation.",
+   "names": [
+    "Ethias",
+    "SAP"
+   ]
+  },
+  {
+   "src": "fr",
+   "text": "La pénurie de profils IT pousse les entreprises belges à faire appel à des freelances.",
+   "nl": "Het tekort aan IT-profielen drijft Belgische bedrijven ertoe een beroep te doen op freelancers.",
+   "en": "The shortage of IT profiles is pushing Belgian companies to turn to freelancers.",
+   "names": [
+    "IT"
+   ]
+  },
+  {
+   "src": "en",
+   "text": "Microsoft’s Patch Tuesday surpasses 1,000 bugs for second month in a row",
+   "nl": "Patch Tuesday van Microsoft telt voor de tweede maand op rij meer dan 1.000 bugs",
+   "fr": "Le Patch Tuesday de Microsoft dépasse les 1 000 bugs pour le deuxième mois consécutif",
+   "names": [
+    "Microsoft",
+    "Patch Tuesday"
+   ]
+  },
+  {
+   "src": "en",
+   "text": "Who Gives A Crap? Hackers, apparently, after toilet paper maker's customer data exposed",
+   "nl": "Who Gives A Crap? Hackers blijkbaar wel, nu klantgegevens van toiletpapiermaker zijn uitgelekt",
+   "fr": "Who Gives A Crap ? Les pirates, apparemment, après la fuite des données clients du fabricant de papier toilette",
+   "names": [
+    "Who Gives A Crap"
+   ]
+  },
+  {
+   "src": "en",
+   "text": "14-year-old creates tool for AI agents to band together like a team",
+   "nl": "14-jarige ontwikkelt tool waarmee AI-agents als een team kunnen samenwerken",
+   "fr": "Un adolescent de 14 ans crée un outil permettant aux agents IA de travailler ensemble comme une équipe",
+   "names": [
+    "14"
+   ]
+  },
+  {
+   "src": "en",
+   "text": "EU watchdog probes Commission’s AI pick over conflict of interest concerns",
+   "nl": "EU-waakhond onderzoekt AI-keuze van de Commissie wegens vrees voor belangenconflict",
+   "fr": "Le gendarme européen enquête sur le choix de la Commission en matière d'IA en raison de craintes de conflit d'intérêts",
+   "names": []
+  },
+  {
+   "src": "en",
+   "text": "Interview with Manish Prasad: “Touch Any Growth Lever in India and You’ll Find SAP There”",
+   "nl": "Interview met Manish Prasad: \"Aan welke groeihefboom je in India ook komt, SAP is er altijd bij\"",
+   "fr": "Entretien avec Manish Prasad : « Quel que soit le levier de croissance que vous touchez en Inde, vous y trouverez SAP »",
+   "names": [
+    "Manish Prasad",
+    "SAP"
+   ]
+  },
+  {
+   "src": "en",
+   "text": "Ageas signed a five-year framework contract with Capgemini for managed cloud services.",
+   "nl": "Ageas sloot een raamcontract van vijf jaar met Capgemini voor beheerde clouddiensten.",
+   "fr": "Ageas a signé un contrat-cadre de cinq ans avec Capgemini pour des services cloud managés.",
+   "names": [
+    "Ageas",
+    "Capgemini"
+   ]
+  },
+  {
+   "src": "en",
+   "text": "De Lijn is cutting 300 jobs as part of its restructuring plan.",
+   "nl": "De Lijn schrapt 300 banen in het kader van zijn herstructureringsplan.",
+   "fr": "De Lijn supprime 300 emplois dans le cadre de son plan de restructuration.",
+   "names": [
+    "De Lijn",
+    "300"
+   ]
+  }
+ ]
+}

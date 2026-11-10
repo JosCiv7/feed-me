@@ -5,7 +5,10 @@ Pas dit bestand aan om bronnen toe te voegen, te schrappen of hun label te wijzi
 lean (politieke kleur, enkel voor Belgische/Europese duiding):
     "L"  = links          "CL" = centrum-links     "C" = centrum
     "CR" = centrum-rechts "R"  = rechts            None = geen label (tech, buitenland)
-Dit zijn VOORSTELLEN op basis van algemene reputatie, geen objectieve waarheid.
+Dit zijn VOORSTELLEN op basis van algemene reputatie, geen objectieve waarheid. De Belgische labels zijn op
+10 november 2026 nagekeken tegen Media Bias/Fact Check, Eurotopics en de Reuters Digital News Report (zie
+tests/links-rechts.md). Regels: openbare omroepen krijgen hetzelfde label (VRT en RTBF: C); media met hetzelfde
+externe profiel ook (De Standaard en La Libre: C).
 
 kind:
     "be"      = Belgische algemene nieuwsbron
@@ -18,6 +21,11 @@ max_age_h (optioneel): hoe oud artikels mogen zijn, voor bronnen die weinig publ
 max_items (optioneel): maximum aantal artikels per update, voor bronnen die heel veel publiceren (standaard 40)
 """
 
+# Talen waarin je Feed Me kan lezen. Standaard enkel Nederlands: zo blijft een update snel.
+# Zet er "fr" en/of "en" bij en de app toont in de instellingen een taalkeuze; elke extra taal kost wel vertaaltijd
+# (titels, samenvattingen en volledige artikels worden dan ook naar die taal vertaald).
+LANGUAGES = ("nl",)
+
 SOURCES = [
     # --- België (Nederlandstalig) ---
     {"id": "vrt", "name": "VRT NWS", "url": "https://www.vrt.be/vrtnws/nl.rss.articles.xml", "lang": "nl", "country": "BE", "kind": "be", "lean": "C"},
@@ -28,8 +36,8 @@ SOURCES = [
     {"id": "mo", "name": "MO*", "url": "https://www.mo.be/rss.xml", "lang": "nl", "country": "BE", "kind": "be", "lean": "L"},
     {"id": "pallieterke", "name": "'t Pallieterke", "url": "https://pallieterke.net/feed/", "lang": "nl", "country": "BE", "kind": "be", "lean": "R"},
     # --- België (Franstalig) ---
-    {"id": "rtbf", "name": "RTBF", "url": "https://rss.rtbf.be/article/rss/highlight_rtbf_info.xml", "lang": "fr", "country": "BE", "kind": "be", "lean": "CL"},
-    {"id": "lalibre", "name": "La Libre", "url": "https://www.lalibre.be/arc/outboundfeeds/rss/?outputType=xml", "lang": "fr", "country": "BE", "kind": "be", "lean": "CR"},
+    {"id": "rtbf", "name": "RTBF", "url": "https://rss.rtbf.be/article/rss/highlight_rtbf_info.xml", "lang": "fr", "country": "BE", "kind": "be", "lean": "C"},
+    {"id": "lalibre", "name": "La Libre", "url": "https://www.lalibre.be/arc/outboundfeeds/rss/?outputType=xml", "lang": "fr", "country": "BE", "kind": "be", "lean": "C"},
     {"id": "lecho", "name": "L'Echo", "url": "https://www.lecho.be/rss/actualite.xml", "lang": "fr", "country": "BE", "kind": "be", "lean": "CR"},
     # --- Brussel ---
     {"id": "bruzz", "name": "Bruzz", "url": "https://www.bruzz.be/rss.xml", "lang": "nl", "country": "BE", "kind": "brussel", "lean": "C"},

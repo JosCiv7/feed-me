@@ -13,17 +13,24 @@ LOADED_WORDS = """
 schandalig schandaal schande schokkend shock choquerend woedend woede razend furieus drama dramatisch chaos chaotisch
 catastrofe catastrofaal rampzalig hallucinant onvoorstelbaar ongezien ongelooflijk absurd belachelijk waanzin waanzinnig
 krankzinnig horror gruwel gruwelijk verbijsterend bizar hysterie hetze heksenjacht afrekening vernietigend keihard sneer
-uithaal veeg ophef rel relletje sensationeel idioot leugen leugens liegt propaganda woke wokisme clown fiasco blunder
-scandaleux scandale choc choquant furieux colère rage drame dramatique chaotique catastrophique désastre désastreux
+uithaal veeg ophef rel relletje sensationeel idioot leugen leugens liegt woke wokisme clown fiasco blunder
+scandaleux scandale choc choquant furieux colère drame dramatique chaotique catastrophique désastre désastreux
 incroyable inouï ridicule délirant horreur horrible effroyable stupéfiant hystérie fustige étrille dézingue cinglant
-tollé mensonge mensonges propagande fiasco
+tollé mensonge mensonges fiasco
 outrage outrageous shocking furious fury slams slammed blasts blasted rips destroys chaotic catastrophic disastrous
-unbelievable insane ridiculous horrific stunning bombshell explosive hysteria scathing brutal firestorm uproar lies liar
+unbelievable insane ridiculous horrific stunning bombshell explosive hysteria scathing brutal firestorm uproar liar
 meltdown humiliating humiliation disgrace disgraceful
 """.split()
+# Bewust NIET in de lijst (getest op echt nieuws, zie tests/test_neutral.py):
+# "propaganda"/"propagande" (in cybernieuws een beschrijving: "Iraanse propaganda"), Engels "lies" ("the problem lies in"),
+# Frans "rage" (ook: hondsdolheid) en "rage" in het Nederlands ("een rage").
 LOADED_RE = re.compile(r"\b(" + "|".join(map(re.escape, LOADED_WORDS)) + r")\b", re.I)
 
 OPINION_RE = re.compile(r"/(opinie|opinion|opinions|column|columns|commentary|comment|edito|editorial|debat|blogs?|analyse|analysis)/", re.I)
+# sommige sites (L'Echo, De Tijd) zetten het genre enkel in de titel: "Édito | ...", "Opinie: ...", "Column - ..."
+OPINION_TITLE_RE = re.compile(
+    r"^\s*(opinie|column|commentaar|analyse|[eé]dito|[eé]ditorial|editorial|carte blanche|chronique|tribune|opinion|analysis|comment|"
+    r"lezersbrief|brief van de dag|l'édito|het commentaar|de column)\s*[|:–—-]", re.I)
 LIVE_RE = re.compile(r"/(live|liveblog|direct)[/-]|[-/]live[-/]", re.I)
 CAPS_RE = re.compile(r"\b[A-ZÀ-Ý]{4,}\b")
 
@@ -47,7 +54,7 @@ def assess(item, src):
     score = LEAN_POINTS.get(src["lean"], 2)
     score += 4 if paras else 0
     score -= min(4, per_1000 / 2) + in_title + 0.5 * exclaim + 0.5 * caps
-    opinion = bool(OPINION_RE.search(item["link"]))
+    opinion = bool(OPINION_RE.search(item["link"]) or OPINION_TITLE_RE.search(title))
     live = bool(LIVE_RE.search(item["link"]))
     score -= 5 if opinion else 0
     score -= 2 if live else 0
@@ -62,19 +69,28 @@ def assess(item, src):
     }
 
 
+def blindspot(leans):
+    """"left" of "right" als een verhaal bijna enkel (>= 80%) door één kant gebracht wordt, door minstens 3 gelabelde bronnen."""
+    left = leans.get("L", 0) + leans.get("CL", 0)
+    right = leans.get("R", 0) + leans.get("CR", 0)
+    labeled = sum(leans.values())
+    if labeled >= 3 and left / labeled >= 0.8:
+        return "left"
+    if labeled >= 3 and right / labeled >= 0.8:
+        return "right"
+    return None
+
+
 def reasons(article, src, others):
-    """Korte uitleg (Nederlands) waarom deze versie gekozen werd."""
+    """Waarom deze versie gekozen werd, als codes [code, getal]; de app zet ze om in de gekozen taal."""
     out = []
     if article.get("found"):
-        out.append("Gratis versie, gevonden via zoeken omdat de andere bronnen achter een betaal- of loginmuur zitten")
+        out.append(["found", 0])
     if src["lean"]:
-        out.append(LEAN_TEXT[src["lean"]].capitalize())
+        out.append(["lean_" + src["lean"], 0])
     if article["text"]:
-        out.append("volledige tekst leesbaar in de app")
-    if not article["loaded"]:
-        out.append("geen geladen woorden gevonden")
-    else:
-        out.append(f"{len(article['loaded'])} geladen woord{'en' if len(article['loaded']) > 1 else ''}")
+        out.append(["text", 0])
+    out.append(["loaded", len(article["loaded"])])
     if others:
-        out.append(f"vergeleken met {others} andere versie{'s' if others > 1 else ''}")
+        out.append(["others", others])
     return out

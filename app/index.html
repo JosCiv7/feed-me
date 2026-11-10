@@ -19,51 +19,30 @@
       <span>Feed Me</span>
     </a>
     <div class="top-actions">
-      <button id="install" class="install" hidden>Installeer app</button>
-      <button id="refresh" class="icon-btn" aria-label="Vernieuwen">
+      <button id="install" class="install" hidden data-i18n="install">Installeer app</button>
+      <button id="open-settings" class="icon-btn" aria-label="Instellingen" data-i18n-label="settings">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="16" cy="7" r="2.2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="10" cy="17" r="2.2" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+      </button>
+      <button id="refresh" class="icon-btn" aria-label="Vernieuwen" data-i18n-label="refresh">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
     </div>
   </header>
 
   <nav class="tabs" id="tabs">
-    <button data-tab="voorjou" class="active">Voor jou</button>
-    <button data-tab="belgie" style="--c: var(--sec-belgie)">België</button>
-    <button data-tab="brussel" style="--c: var(--sec-brussel)">Brussel</button>
-    <button data-tab="spanje" style="--c: var(--sec-spanje)">Spanje</button>
-    <button data-tab="europa" style="--c: var(--sec-europa)">Europa</button>
-    <button data-tab="wereld" style="--c: var(--sec-wereld)">Wereld</button>
-    <button data-tab="conflicten" style="--c: var(--sec-conflicten)">Conflicten</button>
-    <button data-tab="economie" style="--c: var(--sec-economie)">Economie</button>
-    <button data-tab="tech" style="--c: var(--sec-tech)">Tech</button>
-    <button data-tab="wetenschap" style="--c: var(--sec-wetenschap)">Wetenschap</button>
-    <button data-tab="mobiliteit" style="--c: var(--sec-mobiliteit)">Mobiliteit</button>
-    <button data-tab="bronnen">Bronnen</button>
+    <button data-tab="voorjou" class="active" data-i18n="forYou">Voor jou</button>
+    <!-- de rubrieken die je in de instellingen aan hebt staan, komen hier (zie app.js) -->
+    <button data-tab="bronnen" data-i18n="sources">Bronnen</button>
   </nav>
 
-  <button id="newsbar" class="newsbar" hidden><b>Nieuw nieuws</b><span>Tik om te vernieuwen</span></button>
+  <button id="newsbar" class="newsbar" hidden><b data-i18n="newNews">Nieuw nieuws</b><span data-i18n="tapRefresh">Tik om te vernieuwen</span></button>
   <div id="toast" class="toast" role="status" hidden></div>
 
-  <div id="sheet" class="sheet" hidden>
-    <form class="box">
-      <p><b>Zelf nieuw nieuws laten ophalen</b></p>
-      <p>GitHub slaat zijn vaste updates soms urenlang over. Met een sleutel kan deze knop zelf een update starten (± 8 minuten). Je doet dit maar één keer:</p>
-      <ol>
-        <li>Open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">deze GitHub-pagina</a> en meld je aan.</li>
-        <li>Naam: <i>Feed Me</i>. Vervaldatum: zo lang mogelijk.</li>
-        <li>Bij <i>Repository access</i>: <i>Only select repositories</i> → <i>feed-me</i>.</li>
-        <li>Bij <i>Permissions</i>: <i>Actions</i> → <i>Read and write</i>. Verder niets.</li>
-        <li>Tik op <i>Generate token</i>, kopieer de sleutel en plak hem hieronder.</li>
-      </ol>
-      <p class="why">De sleutel blijft enkel op dit toestel en kan alleen updates van Feed Me starten.</p>
-      <input type="password" autocomplete="off" placeholder="github_pat_…" aria-label="GitHub-sleutel">
-      <p class="err"></p>
-      <button class="btn" type="submit">Opslaan en nieuws ophalen</button><button class="btn ghost" type="button" data-close>Later</button>
-    </form>
-  </div>
+  <!-- uitleg om zelf een update te starten; de tekst komt uit app.js, in de gekozen taal -->
+  <div id="sheet" class="sheet" hidden><form class="box"></form></div>
 
   <main id="feed" aria-live="polite">
-    <p class="status">Nieuws laden…</p>
+    <p class="status" data-i18n="loading">Nieuws laden…</p>
   </main>
 
   <section id="reader" class="reader" hidden aria-label="Artikel"></section>
