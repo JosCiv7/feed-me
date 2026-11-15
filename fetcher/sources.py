@@ -137,8 +137,11 @@ INTEREST_BOOST = {
 TOPICS = {
     "spanje": r"spanje|spaans\w*|madrid\w*|barcelona|catalon\w*|catala\w*|andalus\w*|valencia\w*|sevilla|bilbao|baskisch\w*"
               r"|mallorca|canarische|ibiza|málaga|malaga|sánchez|feijóo|psoe|espagne|spain|spanish|españa|español\w*",
-    "europa": r"europese (commissie|unie|raad|centrale bank)|europees parlement|eu-\w+|eu|von der leyen|kallas|eurozone"
-              r"|schengen|europarlement\w*|commission européenne|union européenne|european commission|european union",
+    "europa": r"europese (commissie|unie|raad|centrale bank|leiders|top|lidstaten|landen|regels|wetgeving|rekenkamer|verkiezingen)"
+              r"|europees (parlement|hof|ombudsman)|eu-\w+|eu|von der leyen|kallas|costa|eurozone|eurogroep|eurocommissaris\w*"
+              r"|schengen|europarlement\w*|lidstaten|frontex|europol|brexit|navo-top"
+              r"|commission européenne|union européenne|parlement européen|conseil européen|eurodéput\w*"
+              r"|european (commission|union|parliament|council)|meps?|comisión europea|unión europea|parlamento europeo|bruselas",
     "conflicten": r"oorlog\w*|oekraïn\w*|ukrain\w*|kyiv|kiev|kremlin|gaza|hamas|hezbollah|westelijke jordaanoever|west bank"
                   r"|soedan|sudan|congo|m23|houthi\w*|jemen|drone-?aanval\w*|raketaanval\w*|luchtaanval\w*|staakt-het-vuren"
                   r"|wapenstilstand|ceasefire|troepen|bombardement\w*|frontlinie|offensief|guerre|war",

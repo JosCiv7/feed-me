@@ -75,7 +75,7 @@ const I18N = {
     about: (n) => `Feed Me verzamelt het nieuws van ${n} bronnen en legt artikels over hetzelfde nieuwsfeit samen. Per verhaal zie je welke media erover berichten en uit welke hoek ze komen.`,
     aboutNeutral: "Meest neutrale versie. Als meerdere media hetzelfde verhaal brengen, toont Feed Me de meest neutrale versie: liefst een centrumbron, met volledige tekst, met zo weinig mogelijk geladen woorden (zoals \"schandalig\", \"chaos\" of \"slams\") en geen opiniestuk. Onder elk artikel zie je hoe de andere media het brengen.",
     aboutRead: "Lezen in de app. Waar de site het toelaat, staat de volledige tekst in de app. Betaal- en loginmuren worden gerespecteerd. Staat een verhaal enkel achter zo'n muur, dan zoekt Feed Me een ander medium dat hetzelfde nieuws gratis brengt. Lukt dat niet, dan krijg je een link naar de site. De teksten zijn versleuteld met je wachtwoord, zodat enkel jij ze kan lezen.",
-    aboutTranslate: "Vertaling. Franse, Spaanse en Engelse artikels worden automatisch en gratis naar het Nederlands vertaald (label FR→NL). De vertaling is niet perfect; het origineel kan je altijd bekijken.",
+    aboutTranslate: "Vertaling. Franse, Spaanse en Engelse artikels worden automatisch en gratis naar het Nederlands vertaald; in het artikel staat uit welke taal. De vertaling is niet perfect; het origineel kan je altijd bekijken.",
     aboutBlind: "Een blinde vlek betekent dat een verhaal bijna enkel door linkse of enkel door rechtse media wordt gebracht. De politieke labels zijn een voorstel; hoe ze nagekeken zijn, staat in tests/links-rechts.md.",
     groups: { be: "België", brussel: "Brussel", spanje: "Spanje", tech: "Tech", world: "Wereld & Europa", web: "Gratis versies gevonden via zoeken" },
     unreachable: "niet bereikbaar", textInApp: "tekst in de app", linkOnly: "enkel link",
@@ -249,6 +249,21 @@ async function downloadNews() {
   if (!res.ok) throw new Error(res.status);
   return res.json();
 }
+// tijdstip van het nieuwste nieuws online: een klein bestandje; bestaat het (nog) niet, dan het hele nieuwsbestand
+async function latestStamp() {
+  try {
+    const res = await fetch(`data/version.json?t=${Date.now()}`, { cache: "no-store" });
+    if (res.ok) return (await res.json()).generated;
+  } catch {}
+  return (await downloadNews()).generated;
+}
+// het laatst bewaarde nieuws op dit toestel (door sw.js), om meteen iets te tonen bij het openen
+async function savedNews() {
+  try {
+    const res = await caches.match("data/news.json");
+    return res ? await res.json() : null;
+  } catch { return null; }
+}
 function useNews(data) {
   state.data = data;
   // enkel talen waarin het nieuws ook vertaald is (LANGUAGES in fetcher/sources.py; standaard enkel Nederlands)
@@ -287,6 +302,20 @@ const findStory = (id) => state.data.stories.find((s) => String(s.id) === String
 
 // --- volledige teksten: versleuteld, enkel leesbaar met jouw wachtwoord ---
 let textsJob = { key: null, promise: null };
+let textsRev = ""; // welke versie van de teksten we hebben (een update zet eerst de titels online, de vertaalde artikels volgen)
+
+// Vertaling van dit artikel was er nog niet: nagaan of ze intussen online staat, en dan de teksten opnieuw ophalen
+async function retryTexts(story, a) {
+  try {
+    const res = await fetch(`data/version.json?t=${Date.now()}`, { cache: "no-store" });
+    if (!res.ok) return;
+    const v = await res.json();
+    if (v.generated !== state.data.generated || !v.texts || v.texts === textsRev) return;
+    textsRev = v.texts;
+    textsJob = { key: null, promise: null };
+    if (reader.dataset.story === String(story.id)) fillBody(story, a, true);
+  } catch {}
+}
 
 async function decryptBlob(buf, password) {
   const bytes = new Uint8Array(buf);
@@ -307,7 +336,7 @@ function ensureTexts() {
   if (textsJob.key !== key) {
     const job = {
       key,
-      promise: fetch(`data/texts.bin?t=${encodeURIComponent(state.data.generated)}`)
+      promise: fetch(`data/texts.bin?t=${encodeURIComponent(state.data.generated + textsRev)}`, { cache: "no-store" })
         .then((r) => { if (!r.ok) throw new Error("niet gevonden"); return r.arrayBuffer(); })
         .then((buf) => decryptBlob(buf, state.password)),
     };
@@ -335,7 +364,12 @@ const leanChip = (l) => (l ? `<span class="lean ${l}" style="background:var(--${
 function imageHtml(url, name) {
   const ph = `<span class="ph">${esc((name || "?")[0])}</span>`;
   if (!url) return `<div class="img">${ph}</div>`;
-  return `<div class="img">${ph}<img src="${esc(url)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()"></div>`;
+  return `<div class="img">${ph}<img src="${esc(url)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="imgFail(this)"></div>`;
+}
+// foto laadt niet: in lijsten het lege vak weghalen (de titel krijgt de volle breedte), elders de letter van de bron tonen
+function imgFail(img) {
+  const box = img.parentElement, card = box.closest(".row, .rank, .mid");
+  if (card) { box.remove(); card.classList.add("noimg"); } else img.remove();
 }
 
 function blindText(b) { return b === "left" || b === "vooral links" ? t().blindLeft : b === "right" || b === "vooral rechts" ? t().blindRight : b; }
@@ -350,11 +384,9 @@ function kickerHtml(story, withSection = state.tab === "voorjou") {
 
 function metaHtml(story) {
   const s = src(story.source);
-  const country = s.kind === "world" && s.country ? ` · ${esc(regionName(s.country))}` : "";
-  const lang = isTranslated(story) ? `<span class="lang" title="${esc(t().autoTr)}">${esc(story.lang.toUpperCase())}→${L().toUpperCase()}</span>` : "";
   const n = sourceCount(story);
   const more = n > 1 ? `<span class="count">${leanBar(story.leans)}${t().nSources(n)}</span>` : "";
-  return `<div class="meta"><span class="src">${esc(s.name)}</span><span>${timeAgo(story.published)}${country}</span>${lang}${more}</div>`;
+  return `<div class="meta one"><span class="src">${esc(s.name)}</span><span>${timeAgo(story.published)}</span>${more}</div>`;
 }
 
 const link = (story, cls, inner) =>
@@ -403,15 +435,16 @@ function renderHome() {
   const broad = take([...all].filter((s) => sourceCount(s) >= 3).sort((a, b) => sourceCount(b) - sourceCount(a) || b.my.score - a.my.score), 5);
   if (broad.length) html += block(t().broad, t().broadSub, broad.map((s, i) => rankCard(s, i + 1)).join(""));
 
+  // "Net binnen" staat bovenaan, zodat je het nieuwste niet pas na lang scrollen ziet
+  const latest = take([...all].sort((a, b) => b.published.localeCompare(a.published)), 6);
+  if (latest.length) html += block(t().latest, "", latest.map(latestCard).join(""));
+
   for (const th of visibleThemes()) {
-    const list = take(all.filter((s) => s.my.sections.includes(th.id)), 4);
+    const list = take(all.filter((s) => s.my.sections.includes(th.id)), 3);
     if (!list.length) continue;
     const first = list[0].image ? midCard(list[0]) : rowCard(list[0], false);
     html += block(esc(themeBlock(th.id)), "", first + list.slice(1).map((s) => rowCard(s, false)).join(""), th.id);
   }
-
-  const latest = take([...all].sort((a, b) => b.published.localeCompare(a.published)), 8);
-  if (latest.length) html += block(t().latest, "", latest.map(latestCard).join(""));
   html += block(t().more, "", "");
 
   feed.innerHTML = html + `<div id="more-list"></div>`;
@@ -595,6 +628,7 @@ function versionHtml(story, a, i, current) {
 function readerHtml(story, a, idx) {
   const s = src(a.source), tr = t();
   const lang = a.lang && a.lang !== L() ? `<span class="lang">${esc(tr.translatedFrom(langName(a.lang)))}</span>` : "";
+  const country = s.kind === "world" && s.country ? `<span>${esc(regionName(s.country))}</span>` : "";
   const n = story.articles.length;
   const pick = n > 1
     ? idx === 0
@@ -620,7 +654,7 @@ function readerHtml(story, a, idx) {
       ${kickerHtml(story, true)}
       <h1>${esc(T(a))}</h1>
       ${orig ? `<p class="orig">${esc(orig)}</p>` : ""}
-      <div class="byline"><b>${esc(s.name)}</b>${leanChip(s.lean)}<span>${clock(a.published)} · ${t().ago(timeAgo(a.published))}</span>${lang}</div>
+      <div class="byline"><b>${esc(s.name)}</b>${leanChip(s.lean)}<span>${clock(a.published)} · ${t().ago(timeAgo(a.published))}</span>${country}${lang}</div>
       ${image ? `<figure>${imageHtml(image, s.name)}</figure>` : ""}
       ${pick}
       <div class="body" id="r-body"></div>
@@ -658,7 +692,7 @@ function lockHtml(error) {
   </form>`;
 }
 
-async function fillBody(story, a) {
+async function fillBody(story, a, retried = false) {
   const body = document.getElementById("r-body");
   if (!body) return;
   if (!a.text || !state.data.texts) { body.innerHTML = noTextHtml(story, a.text ? { ...a, why: null } : a); return; }
@@ -682,6 +716,7 @@ async function fillBody(story, a) {
       (foreign && has ? `<button class="toggle" id="toggle-orig">${state.showOriginal ? tr.showTr : tr.showOrig}</button>` : "") +
       (foreign && !has ? `<p class="note">${tr.untranslated}</p>` : "") +
       paragraphsHtml(paras);
+    if (foreign && !has && !retried) retryTexts(story, a);
   } catch (e) {
     if (e && e.name === "OperationError") {
       state.password = null;
@@ -857,9 +892,10 @@ async function github(path, token, options = {}) {
   });
 }
 
-async function startUpdate() {
+// auto = door de app zelf gestart (bij het openen): dan nooit een venster tonen, enkel de melding onderaan
+async function startUpdate(auto = false) {
   const token = load("ghtoken", null);
-  if (!token) { openSheet(); return; }
+  if (!token) { if (!auto) openSheet(); return; }
   // loopt er al een update? dan niet nog een starten, gewoon wachten
   let running = false;
   try {
@@ -868,13 +904,12 @@ async function startUpdate() {
     const runs = (await res.json()).workflow_runs || [];
     running = runs.some((r) => r.status !== "completed");
   } catch (e) {
-    if (e.message === "sleutel") { save("ghtoken", null); openSheet(t().ghBadKey); return; }
+    if (e.message === "sleutel") { if (!auto) { save("ghtoken", null); openSheet(t().ghBadKey); } return; }
   }
   if (!running) {
     const res = await github("/actions/workflows/update.yml/dispatches", token, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ref: "main" }) });
     if (res.status === 401 || res.status === 403 || res.status === 404) {
-      save("ghtoken", null);
-      openSheet(t().ghNoRights);
+      if (!auto) { save("ghtoken", null); openSheet(t().ghNoRights); }
       return;
     }
     if (!res.ok) throw new Error(res.status);
@@ -894,8 +929,8 @@ function watchUpdate() {
     if (Date.now() - since > 25 * 60000) { stopWatching(); return; }
     if (document.hidden) return;
     try {
-      const data = await downloadNews();
-      if (data.generated > state.data.generated && new Date(data.generated) > since - 60000) { stopWatching(); offerNews(data); }
+      const stamp = await latestStamp();
+      if (stamp > state.data.generated && new Date(stamp) > since - 60000) { const data = await downloadNews(); stopWatching(); offerNews(data); }
     } catch {}
   }, 30000);
 }
@@ -954,9 +989,18 @@ async function checkForNews() {
   if (!state.data || document.hidden || Date.now() - lastCheck < 5 * 60000) return;
   lastCheck = Date.now();
   try {
-    const data = await downloadNews();
-    if (data.generated > state.data.generated) offerNews(data);
+    if (await latestStamp() > state.data.generated) offerNews(await downloadNews());
+    else autoUpdate();
   } catch {}
+}
+// Is het nieuws te oud (GitHub slaat zijn vaste updates vaak urenlang over), dan start de app zelf een update,
+// hoogstens één keer per half uur. Zonder GitHub-sleutel gebeurt er niets; de pagina zelf verandert nooit vanzelf.
+const AUTO_UPDATE_MIN = 45;
+function autoUpdate() {
+  if (!state.data || !navigator.onLine || !load("ghtoken", null) || load("waiting", 0)) return;
+  if (ageMin() < AUTO_UPDATE_MIN || Date.now() - load("autotry", 0) < 30 * 60000) return;
+  save("autotry", Date.now());
+  startUpdate(true).catch(() => {});
 }
 document.addEventListener("visibilitychange", checkForNews);
 setInterval(checkForNews, 10 * 60000);
@@ -989,14 +1033,22 @@ window.addEventListener("appinstalled", () => {
   state.read = new Set(load("read", []));
   state.password = load("pw", null);
   buildTabs();
+  // eerst het nieuws dat al op dit toestel staat (de app is er meteen), daarna online het nieuwste halen
+  const saved = await savedNews();
+  if (saved) { useNews(saved); render(); route(); }
   try {
-    useNews(await downloadNews());
-    render();
-    route();
+    const fresh = await downloadNews();
+    if (!state.data) { useNews(fresh); render(); route(); }
+    else if (fresh.generated > state.data.generated) {
+      // nog niet begonnen met lezen: gewoon tonen; anders enkel melden (de pagina verandert nooit onder je ogen)
+      if (window.scrollY < 80 && reader.hidden && !["instellingen", "bronnen"].includes(state.tab)) showNews(fresh);
+      else offerNews(fresh);
+    }
     // teksten alvast op de achtergrond ontsleutelen, zodat artikels meteen openen
     if (state.password && state.data.texts) ensureTexts().catch(() => {});
+    autoUpdate();
   } catch {
-    feed.innerHTML = `<p class="status">${t().loadFail}</p>`;
+    if (!state.data) feed.innerHTML = `<p class="status">${t().loadFail}</p>`;
   }
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 })();

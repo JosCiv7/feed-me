@@ -48,16 +48,39 @@ jobs:
           restore-keys: feed-cache-
 
       # FEEDME_KEY = wachtwoord waarmee de volledige artikels versleuteld worden
-      - run: python fetcher/fetch_news.py
+      # Stap 1: nieuws ophalen en titels vertalen, en dat meteen online zetten (± 2 minuten)
+      - run: python fetcher/fetch_news.py --fast
         env:
           FEEDME_KEY: ${{ secrets.FEEDME_KEY }}
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
+          name: pages-stap1
           path: app
-      - id: deploy
+      - uses: actions/deploy-pages@v4
+        with:
+          artifact_name: pages-stap1
+
+      # Stap 2: de volledige artikels vertalen en opnieuw online zetten (doet niets als alles al vertaald was)
+      - id: texts
+        run: |
+          if [ -f fetcher/cache/state.pkl ]; then
+            python fetcher/fetch_news.py --texts
+            echo "again=true" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          FEEDME_KEY: ${{ secrets.FEEDME_KEY }}
+      - if: steps.texts.outputs.again == 'true'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          name: pages-stap2
+          path: app
+      - if: steps.texts.outputs.again == 'true'
+        id: deploy
         uses: actions/deploy-pages@v4
+        with:
+          artifact_name: pages-stap2
 
       # GitHub zet geplande taken stil na 60 dagen zonder commits; dit houdt de app levend
       - name: Keepalive

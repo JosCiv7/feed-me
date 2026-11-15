@@ -93,6 +93,47 @@ LONG = ("tcbig", "madlad", "argos")
 SENTENCE_RE = re.compile(r"(?<=[.!?])\s+(?=[A-ZÀ-Ý\"“'‘«])")
 
 
+END_RE = re.compile(r"[.!?…:;]$")
+ADDED_DOT_RE = re.compile(r"\.(?=[\"”»')\]]*$)")
+WORD_RE = re.compile(r"[^\W\d_]{3,}")
+
+
+def leftovers(source, result):
+    """Hoeveel woorden uit de brontekst staan onvertaald in het resultaat?
+
+    Namen tellen niet mee: een woord met een hoofdletter midden in de zin laten we met rust. Wat overblijft zijn
+    gewone woorden (kleine letter, of het eerste woord) die letterlijk uit de bron komen. Sommige horen zo
+    ("euro", "accident"), maar dat geldt dan voor elke poging evenveel; het getal dient enkel om pogingen te vergelijken.
+    """
+    src = {w.lower() for w in WORD_RE.findall(source)}
+    words = WORD_RE.findall(result)
+    return sum(1 for i, w in enumerate(words) if w.lower() in src and (i == 0 or w.islower()))
+
+
+# Vaste vertalingen voor namen en termen die het model verkeerd "vertaalt".
+# (taal van de bron, wat in de bron moet staan, wat het model ervan maakt, wat het moet zijn)
+GLOSSARY = [
+    ("fr", r"rassemblement national", r"\b(de |het )?nationale? rally\b", "het Rassemblement National"),
+    ("en", r"national rally", r"\b(de |het )?nationale? rally\b", "het Rassemblement National"),
+    ("fr", r"l[’']hexagone", r"\b(de |het )?hexagone?\b", "Frankrijk"),
+    ("fr", r"les engagés", r"\b(de )?(engaged|geëngageerden|betrokkenen|verloofden)\b", "Les Engagés"),
+    ("es", r"guardia civil", r"\b(de )?(burgerwacht|civiele garde|burgergarde)\b", "de Guardia Civil"),
+    ("es", r"\bgeneralitat\b", r"\b(de )?generaliteit\b", "de Generalitat"),
+    ("en", r"\bkyiv\b", r"\bkyiv\b", "Kiev"),
+    ("en", r"\bzelenskyy\b", r"\bzelenskyy\b", "Zelensky"),
+    ("en", r"\bwhite house\b", r"\bwit huis\b", "Witte Huis"),
+]
+GLOSSARY = [(lang, re.compile(a, re.I), re.compile(b, re.I), c) for lang, a, b, c in GLOSSARY]
+
+
+def apply_glossary(source, result, lang):
+    for glang, in_source, wrong, right in GLOSSARY:
+        if glang == lang and in_source.search(source):
+            # hoofdletter behouden als de vervanging vooraan in de zin staat
+            result = wrong.sub(lambda m, r=right: r[0].upper() + r[1:] if m.group(0)[0].isupper() else r, result)
+    return result
+
+
 def split_sentences(texts):
     """Zin per zin vertalen geeft betere resultaten dan een hele alinea in één keer."""
     pieces, owners = [], []
@@ -131,15 +172,43 @@ class ArgosEngine:
             )
         return self.models[(src, tgt)]
 
-    def _step(self, sents, src, tgt):
+    def _step(self, sents, src, tgt, beam=2, **options):
         model, sp = self._model(src, tgt)
-        results = model.translate_batch([sp.encode(s, out_type=str) for s in sents], beam_size=2, max_batch_size=32, max_decoding_length=200)
+        results = model.translate_batch([sp.encode(s, out_type=str) for s in sents], beam_size=beam, max_batch_size=32,
+                                        max_decoding_length=256, **options)
         return ["".join(r.hypotheses[0]).replace("▁", " ").strip() for r in results]
 
-    def translate(self, texts, src, tgt):
-        pieces, owners = split_sentences(texts)
+    def _chain(self, sents, src, tgt, dot=False, beam=2, **options):
+        """Vertaal zinnen langs alle tussenstappen. dot=True: een titel zonder leesteken krijgt tijdelijk een punt.
+
+        Het model is getraind op gewone zinnen; een krantentitel zonder punt leest het vaak als een bevel
+        ("Muere un motorista" -> "Sterf een automobilist"). Met een punt erachter vertaalt het de titel als zin.
+        """
+        added = [dot and not END_RE.search(s) for s in sents]
+        out = [s + "." if a else s for s, a in zip(sents, added)]
         for a, b in PATHS[(src, tgt)]:
-            pieces = self._step(pieces, a, b) if pieces else pieces
+            out = self._step(out, a, b, beam, **options)
+        return [ADDED_DOT_RE.sub("", o, count=1) if a and not o.endswith("..") else o for o, a in zip(out, added)]
+
+    def translate(self, texts, src, tgt, careful=False):
+        """careful=True (titels): trager maar beter, en een mislukte vertaling opnieuw proberen."""
+        pieces, owners = split_sentences(texts)
+        if pieces and not careful:
+            pieces = self._chain(pieces, src, tgt, dot=True)
+        elif pieces:
+            out = self._chain(pieces, src, tgt, dot=True, beam=5, repetition_penalty=1.1)
+            # bleven er woorden uit de brontaal staan ("Cae een band…")? Dan andere instellingen proberen en de beste houden.
+            # Niet voor het Engels: dat gaat in één stap en daar zijn gelijke woorden bijna altijd namen of leenwoorden.
+            bad = [i for i, (p, o) in enumerate(zip(pieces, out)) if leftovers(p, o)] if src != "en" else []
+            for variant in ({"dot": False}, {"dot": True}):
+                if not bad:
+                    break
+                alt = self._chain([pieces[i] for i in bad], src, tgt, **variant)
+                for i, a in zip(bad, alt):
+                    if leftovers(pieces[i], a) < leftovers(pieces[i], out[i]):
+                        out[i] = a
+                bad = [i for i in bad if leftovers(pieces[i], out[i])]
+            pieces = out
         return join_sentences(texts, owners, pieces)
 
 
@@ -239,24 +308,35 @@ class Translator:
 
     def _key(self, t, lang, target, kind="short"):
         # argos naar het Nederlands: het oude formaat, zodat de bestaande cache blijft werken; andere motoren apart
-        name = self.engines[kind].name
+        name = self._engine(kind).name
         key = f"{lang}|{t}" if target == "nl" else f"{lang}>{target}|{t}"
-        return key if name == "argos" else f"{name}:{key}"
+        if name != "argos":
+            return f"{name}:{key}"
+        # titels worden sinds november 2026 zorgvuldiger vertaald: eigen sleutel, zodat oude vertalingen niet blijven hangen
+        return f"t2:{key}" if kind == "title" else key
+
+    def _engine(self, kind):
+        return self.engines["long" if kind == "long" else "short"]
 
     def has(self, texts, lang, target="nl", kind="short"):
         """Zijn al deze teksten al eens vertaald (dus gratis uit de cache)?"""
         return all(not t or self._key(t, lang, target, kind) in self.cache for t in texts)
 
     def translate(self, texts, lang, target="nl", kind="short"):
-        """Vertaal teksten van `lang` naar `target` (met cache). kind="long" = volledige artikels (snellere motor)."""
+        """Vertaal teksten van `lang` naar `target` (met cache).
+
+        kind: "title" = titels (zorgvuldigst), "short" = samenvattingen, "long" = volledige artikels (snellere motor).
+        """
         if lang == target:
             return list(texts)
         keys = [self._key(t, lang, target, kind) for t in texts]
         todo = sorted({t for t, k in zip(texts, keys) if t and k not in self.cache})
         if todo:
-            result = self.engines[kind].translate(todo, lang, target)
+            engine = self._engine(kind)
+            careful = {"careful": True} if kind == "title" and engine.name == "argos" else {}
+            result = engine.translate(todo, lang, target, **careful)
             for t, r in zip(todo, result):
-                self.cache[self._key(t, lang, target, kind)] = r
+                self.cache[self._key(t, lang, target, kind)] = apply_glossary(t, r, lang) if target == "nl" else r
         self.used.update(keys)
         return [tidy(self.cache.get(k, t)) if t else t for t, k in zip(texts, keys)]
 

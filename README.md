@@ -21,9 +21,15 @@ Laat Chrome het bewaren wanneer je het de eerste keer ingeeft; dan vult Chrome h
 
 ## Zelf nieuw nieuws ophalen
 
-GitHub slaat zijn geplande updates soms urenlang over. Is het nieuws ouder dan 20 minuten, dan start de
-vernieuwknop zelf een update (± 8 minuten). Daarvoor vraagt de app één keer een GitHub-sleutel
+GitHub slaat zijn geplande updates vaak urenlang over. Is het nieuws ouder dan 20 minuten, dan start de
+vernieuwknop zelf een update. Daarvoor vraagt de app één keer een GitHub-sleutel
 (fine-grained token, enkel voor `feed-me`, met als enige recht *Actions: Read and write*). Die blijft enkel op je toestel.
+Met die sleutel start de app ook zelf een update wanneer je ze opent en het nieuws ouder is dan 45 minuten
+(hoogstens één keer per half uur). De pagina verandert nooit vanzelf: je krijgt bovenaan een melding.
+
+Een update zet het nieuws in twee stappen online: eerst de titels en samenvattingen (`fetch_news.py --fast`),
+enkele minuten later de vertaalde volledige artikels (`fetch_news.py --texts`). Open je in de tussentijd een artikel
+dat nog niet vertaald is, dan zie je het origineel en haalt de app de vertaling op zodra ze er is.
 
 ## Starten op je pc
 
@@ -50,6 +56,11 @@ Nederlands, Frans en Engels (chrF, hoger = beter); een deel van die zinnen staat
 | OPUS-MT tc-big (± 700 MB) | 67.2 | ± 10 zinnen/s | volledige artikels |
 | MADLAD-400 3B (± 3 GB) | 73.0 | ± 1.4 zinnen/s | titels en samenvattingen |
 
+Titels worden zorgvuldiger vertaald dan lopende tekst (zie `careful` in `fetcher/translate.py`): een titel zonder
+leesteken krijgt tijdelijk een punt, zodat het model hem als zin leest en niet als bevel; blijven er Franse of Spaanse
+woorden staan, dan probeert Feed Me het opnieuw met andere instellingen. Namen en termen die het model fout vertaalt
+("National Rally", "burgerwacht" voor Guardia Civil) staan in de lijst `GLOSSARY` in hetzelfde bestand.
+
 Zelf testen: `python tests/vertaling/evalueer.py`. Motor kiezen: `FEEDME_TRANSLATOR` (titels) en
 `FEEDME_TRANSLATOR_TEXTS` (artikels) op `argos`, `tcbig` of `madlad`.
 
@@ -65,7 +76,7 @@ Testgevallen: `python -m unittest discover tests`.
 - `fetcher/articles.py`: haalt de volledige tekst van elk artikel op. Betaal- en loginmuren worden gerespecteerd.
 - `fetcher/neutral.py`: kiest per nieuwsfeit de meest neutrale versie (bron, volledige tekst, geladen woorden, opinie of niet).
 - `fetcher/translate.py`: offline vertaling (Argos, of de grotere modellen als die geïnstalleerd zijn; geen account of betaling nodig).
-- `fetcher/search.py`: zoekt een gratis versie van nieuws dat enkel achter een betaalmuur staat.
+- `fetcher/search.py`: zoekt een gratis versie van nieuws dat enkel achter een betaalmuur staat, enkel bij de betrouwbare media uit `TRUSTED_DOMAINS` en de eigen bronnen.
 - `fetcher/summary.py`: maakt de korte samenvatting (de belangrijkste zinnen uit het artikel zelf).
 - `fetcher/vault.py`: versleutelt de volledige teksten met je wachtwoord (`app/data/texts.bin`).
 - `app/`: de app zelf (installeerbaar op Android als web-app).

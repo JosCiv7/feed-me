@@ -10,4 +10,4 @@ echo Nieuws ophalen, lezen en vertalen...
 echo.
 echo Feed Me draait op http://localhost:8321  (sluit dit venster om te stoppen)
 start "" http://localhost:8321
-python -m http.server 8321 --directory app
+.venv\Scripts\python.exe -m http.server 8321 --bind 127.0.0.1 --directory app

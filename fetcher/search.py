@@ -21,13 +21,23 @@ WALLS = {"betaalmuur", "inlogmuur", "geweigerd", "te kort"}
 # doorgeefluiken, fora en staatspropaganda
 SKIP_DOMAINS = {"msn.com", "fok.nl", "marketscreener.com", "vietnam.vn", "rt.com", "sputnikglobe.com", "tass.com",
                 "globaltimes.cn", "presstv.ir", "newsbreak.com", "ground.news", "newsnow.co.uk"}
-# gekende, betrouwbare media met gratis artikels: daar volstaan 2 gemeenschappelijke woorden, anders 3
+# Enkel van deze gekende, betrouwbare media (en van de eigen bronnen uit sources.py) nemen we een gratis versie over.
 TRUSTED_DOMAINS = {
     "vrt.be", "bruzz.be", "rtbf.be", "lalibre.be", "nos.nl", "nu.nl", "rtl.be", "rtl.nl", "lavenir.net", "belganewsagency.eu",
     "brusselstimes.com", "thebulletin.be", "lesoir.be", "bnr.nl", "nporadio1.nl", "tf1info.fr", "francetvinfo.fr", "20minutes.fr",
     "ouest-france.fr", "lefigaro.fr", "liberation.fr", "rfi.fr", "france24.com", "euronews.com", "reuters.com", "apnews.com",
     "bbc.com", "bbc.co.uk", "theguardian.com", "npr.org", "dw.com", "aljazeera.com", "politico.eu", "cbc.ca", "abc.net.au",
-    "yahoo.com", "aol.com", "techcrunch.com", "engadget.com", "arstechnica.com", "tweakers.net", "datanews.be",
+    "techcrunch.com", "theregister.com", "zdnet.com", "wired.com", "bleepingcomputer.com", "9to5mac.com", "nature.com",
+    "bx1.be", "businessam.be", "levif.be", "nu.nl", "franceinfo.fr", "bfmtv.com", "lepoint.fr", "tagesschau.de", "zdf.de",
+    "swissinfo.ch", "rte.ie", "irishtimes.com", "independent.co.uk", "sky.com", "euractiv.com", "euobserver.com",
+    "thelocal.es", "thelocal.fr", "thelocal.de", "thelocal.com", "politico.com", "cnn.com", "nbcnews.com", "cbsnews.com",
+    "pbs.org", "usatoday.com", "thehill.com", "axios.com", "time.com", "ctvnews.ca", "globalnews.ca", "lapresse.ca",
+    "sbs.com.au", "rnz.co.nz", "channelnewsasia.com", "rthk.hk", "nhk.or.jp", "kyodonews.net", "japantoday.com",
+    "koreaherald.com", "koreatimes.co.kr", "indianexpress.com", "hindustantimes.com", "dawn.com", "bangkokpost.com",
+    "taipeitimes.com", "focustaiwan.tw", "news24.com", "mg.co.za", "punchng.com", "nation.africa", "theafricareport.com",
+    "jpost.com", "kyivpost.com", "pravda.com.ua", "batimes.com.ar", "infobae.com", "clarin.com", "europapress.es",
+    "efe.com", "lasexta.com", "larazon.es", "publico.es", "cadenaser.com", "elespanol.com", "diariodesevilla.es",
+    "eitb.eus", "ara.cat", "sporza.be", "belganewsagency.eu", "lemonde.fr", "elpais.com", "eldiario.es", "20minutos.es", "rtve.es", "engadget.com", "arstechnica.com", "tweakers.net", "datanews.be",
 }
 
 LANG_HINTS = {
@@ -115,7 +125,8 @@ def find_free(groups, items, ctx):
             except Exception as e:  # zoeken mislukt: volgende keer opnieuw
                 print(f"  zoeken mislukt voor '{lead['title'][:50]}': {e}")
             time.sleep(1)
-        if entry["hit"]:
+        # ook een vroeger gevonden versie moet van een betrouwbare site komen (de lijst kan intussen strenger zijn)
+        if entry["hit"] and (entry["hit"]["domain"] in TRUSTED_DOMAINS or entry["hit"]["domain"] in ctx["known_domains"]):
             found.append((g, entry["hit"]))
 
     CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -145,18 +156,19 @@ def search_one(group, idf, ctx):
         results += ctx["bing"](" ".join(kws[:2]))
     tried, seen = 0, set()
     for c in results:
-        if c["link"] in seen:
+        if c["link"] in seen or not c["link"].startswith(("https://", "http://")):
             continue
         seen.add(c["link"])
         d = domain(c["link"])
         if d in own_domains or d in SKIP_DOMAINS or ctx["is_blocked"](c["link"]):
             continue
+        if d not in TRUSTED_DOMAINS and d not in ctx["known_domains"]:  # onbekende site: niet overnemen
+            continue
         published = datetime.fromisoformat(c["published"]) if c["published"] else now
         if published < oldest or published > now + timedelta(hours=1):
             continue
         cand = tokens(f"{c['title']} {c['summary']}")
-        need = 2 if d in TRUSTED_DOMAINS else 3
-        if len(cand & story_tokens) < need or len(tokens(c["title"]) & story_tokens) < 2 or not cand & kw_tokens:
+        if len(cand & story_tokens) < 2 or len(tokens(c["title"]) & story_tokens) < 2 or not cand & kw_tokens:
             continue
         if tried >= MAX_CANDIDATES:
             break

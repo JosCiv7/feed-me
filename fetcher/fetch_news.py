@@ -1,14 +1,20 @@
 """Haalt alle RSS-feeds op, filtert sensatie, haalt de volledige tekst op, groepeert artikels per nieuwsfeit,
 kiest per nieuwsfeit de meest neutrale versie en schrijft app/data/news.json (+ versleuteld texts.bin).
 
-Gebruik:  python fetcher/fetch_news.py
+Gebruik:  python fetcher/fetch_news.py            alles in één keer (zo werkt "Feed Me starten.bat")
+          python fetcher/fetch_news.py --fast     stap 1: nieuws zonder nieuwe vertalingen van volledige artikels (snel online)
+          python fetcher/fetch_news.py --texts    stap 2: de volledige artikels van stap 1 vertalen en opnieuw wegschrijven
+Op GitHub lopen stap 1 en 2 na elkaar, met telkens een publicatie: zo staan de titels na ± 2 minuten online
+en volgen de vertaalde artikels enkele minuten later.
 """
 import concurrent.futures
 import email.utils
 import html
 import json
 import math
+import pickle
 import re
+import sys
 import time
 import urllib.request
 import zlib
@@ -28,6 +34,8 @@ from sources import (SOURCES, LANGUAGES, BLOCKED_DOMAINS, CLICKBAIT_PATTERNS, IN
 ROOT = Path(__file__).resolve().parent.parent
 OUT_FILE = ROOT / "app" / "data" / "news.json"
 TEXTS_FILE = ROOT / "app" / "data" / "texts.bin"
+VERSION_FILE = ROOT / "app" / "data" / "version.json"   # piepklein: zo ziet de app snel of er nieuwer nieuws is
+STATE_FILE = ROOT / "fetcher" / "cache" / "state.pkl"   # tussenstand tussen stap 1 (--fast) en stap 2 (--texts)
 
 USER_AGENT = "Mozilla/5.0 (Feed Me persoonlijke nieuwslezer)"
 MAX_AGE_HOURS = 36
@@ -35,6 +43,11 @@ MAX_ITEMS_PER_SOURCE = 40   # zodat één drukke bron de rest niet overspoelt
 MAX_PAGE_FETCHES = 500      # nieuwe artikelpagina's per run
 TRANSLATE_SECONDS = 300     # tijd voor het vertalen van volledige teksten per run (alle talen uit LANGUAGES samen; de rest volgt later)
 SIM_THRESHOLD = 0.3         # hoe gelijkaardig twee titels moeten zijn om hetzelfde nieuwsfeit te zijn
+
+# plaats en datum waarmee persbureaus hun bericht beginnen: "SEOUL, Nov. 14 (Yonhap) -- ", "(ANSA) - ROME, NOV 14 - "
+DATELINE_RE = re.compile(
+    r"^\s*(?:\([A-Za-z ]{2,12}\)\s*[-–—]+\s*)?[A-ZÀ-Ý][A-ZÀ-Ý .'/-]{2,40},\s*"
+    r"(?:[A-Za-z]{3,9}\.?\s*\d{1,2}|\d{1,2}\s*[A-Za-z]{3,9}\.?)\s*(?:\([^)]{2,20}\))?\s*[-–—]+\s*")
 
 CLICKBAIT_RE = [re.compile(p, re.I) for p in CLICKBAIT_PATTERNS]
 TOPIC_RE = {t: re.compile(rf"\b({p})\b", re.I) for t, p in TOPICS.items()}
@@ -157,10 +170,11 @@ def parse_feed(raw):
     for b in blocks:
         title = clean_text(tag(b, "title"))
         link = find_link(b)
-        if not title or not link:
+        if not title or not link.startswith(("https://", "http://")):  # enkel gewone weblinks (nooit javascript: of data:)
             continue
         desc = clean_text(tag(b, "description", "summary", "content:encoded", "content"))
         desc = re.sub(r"\s*The post .* appeared first on .*$", "", desc)  # WordPress-voetnoot
+        desc = DATELINE_RE.sub("", desc)
         items.append({
             "title": title,
             "link": link,
@@ -172,15 +186,15 @@ def parse_feed(raw):
 
 
 def fetch_source(src):
-    for attempt in range(2):
+    for attempt in range(3):
         try:
             items = parse_feed(fetch(src["url"]))
             return src, items, None
-        except Exception as e:  # netwerkfout: één keer opnieuw proberen, dan overslaan
+        except Exception as e:  # netwerkfout (sommige sites verbreken geregeld de verbinding): opnieuw proberen, dan overslaan
             err = f"{type(e).__name__}: {e}"
-            if "403" in err or "429" in err:
+            if any(c in err for c in ("401", "403", "404", "429")):  # geweigerd of bestaat niet: niet aandringen
                 break
-            time.sleep(1.5)
+            time.sleep(2 + 3 * attempt)
     return src, [], err
 
 
@@ -214,6 +228,8 @@ def sections_for(item, src):
             secs.add("wereld")
     elif src["kind"] == "world":
         secs.add("wereld")
+        if src["country"] == "EU":  # Politico Europe: schrijft over de Europese politiek
+            secs.add("europa")
     elif src["kind"] == "spanje":
         path = urlparse(item["link"]).path.strip("/").split("/")[0].lower()
         sec = SPAIN_PATH_SECTIONS.get(path, "spanje")
@@ -352,7 +368,8 @@ def build_story(group, src_by_id, now):
     }
 
 
-def main():
+def collect():
+    """Stap 1: feeds ophalen, filteren, titels vertalen, artikels lezen, groeperen en de neutraalste versie kiezen."""
     now = datetime.now(timezone.utc)
     src_by_id = {s["id"]: s for s in SOURCES}
 
@@ -393,7 +410,7 @@ def main():
         tr = translate.Translator()
         for lang in translate.ROUTES:
             todo = [it for it in items if src_by_id[it["source"]]["lang"] == lang]
-            titles = tr.translate([it["title"] for it in todo], lang)
+            titles = tr.translate([it["title"] for it in todo], lang, kind="title")
             summaries = tr.translate([it["summary"] for it in todo], lang)
             for it, t, s in zip(todo, titles, summaries):
                 it["orig_title"], it["orig_summary"] = it["title"], it["summary"]
@@ -438,7 +455,7 @@ def main():
 
     source_by_domain = {search.domain(s["url"]): s for s in SOURCES}
     web_sources = {}
-    ctx = {"tokens": tokens, "now": now, "is_blocked": is_blocked, "get_page": get_page,
+    ctx = {"tokens": tokens, "now": now, "is_blocked": is_blocked, "get_page": get_page, "known_domains": set(source_by_domain),
            "bing": lambda q: search.bing(q, fetch, parse_feed)}
     for group, c in search.find_free(groups, items, ctx):
         src = source_by_domain.get(c["domain"])
@@ -453,7 +470,8 @@ def main():
               "source": src["id"], "sections": set(group[0]["sections"]), "found": c["query"]}
         if tr and src["lang"] in translate.ROUTES:
             it["orig_title"], it["orig_summary"] = it["title"], it["summary"]
-            it["title"], it["summary"] = tr.translate([it["title"], it["summary"]], src["lang"])
+            it["title"] = tr.translate([it["title"]], src["lang"], kind="title")[0]
+            it["summary"] = tr.translate([it["summary"]], src["lang"])[0]
         prepare(it)
         group.append(it)
         items.append(it)
@@ -474,7 +492,7 @@ def main():
                 if target not in it["t"] and (lang, target) in translate.PATHS:
                     by_lang.setdefault(lang, []).append(it)
             for lang, todo in by_lang.items():
-                titles = tr.translate([it["t"][lang] for it in todo], lang, target)
+                titles = tr.translate([it["t"][lang] for it in todo], lang, target, "title")
                 sums = tr.translate([it["s"][lang] for it in todo], lang, target)
                 for it, t, sm in zip(todo, titles, sums):
                     it["t"][target], it["s"][target] = t, sm
@@ -484,29 +502,38 @@ def main():
     stories = [build_story(g, src_by_id, now) for g in groups]
     stories.sort(key=lambda s: s["score"], reverse=True)
 
-    # Volledige teksten vertalen: belangrijkste verhalen eerst, binnen een tijdslimiet (de rest volgt bij een volgende run)
+    return {"now": now, "items": items, "stories": stories, "src_by_id": src_by_id, "web_sources": web_sources,
+            "status": status, "page_cache": page_cache, "tr": tr}
+
+
+def publish(state, budget=TRANSLATE_SECONDS):
+    """Stap 2: volledige teksten vertalen (binnen `budget` seconden; wat al vertaald is, kost niets) en alles wegschrijven."""
+    now, items, stories, src_by_id, tr = state["now"], state["items"], state["stories"], state["src_by_id"], state["tr"]
+    web_sources, status, page_cache = state["web_sources"], state["status"], state["page_cache"]
+
+    # Volgorde: eerst van elk verhaal de versie die je te zien krijgt (belangrijkste verhalen eerst),
+    # pas daarna de andere versies. Wat niet meer binnen de tijd past, volgt bij een volgende update.
     by_id = {it["id"]: it for it in items}
+    order = [s["articles"][0] for s in stories] + [a for s in stories for a in s["articles"][1:]]
     texts, pending = {}, 0
     t0 = time.time()
-    # eerst alles naar het Nederlands, dan de andere talen; wat niet meer past, volgt bij een volgende update
     for target in LANGUAGES:
-        for story in stories:
-            for a in story["articles"]:
-                it = by_id[a["id"]]
-                if not it["text_orig"]:
-                    continue
-                lang = src_by_id[it["source"]]["lang"]
-                entry = texts.setdefault(str(a["id"]), {"l": lang, "o": it["text_orig"], "p": {lang: it["text_orig"]}, "s": {}})
-                if target != lang and tr and (lang, target) in translate.PATHS:
-                    if tr.has(it["text_orig"], lang, target, "long") or time.time() - t0 < TRANSLATE_SECONDS:
-                        entry["p"][target] = tr.translate(it["text_orig"], lang, target, "long")
-                    else:
-                        pending += 1
-                if target in entry["p"]:
-                    entry["s"][target] = summary.summarize(entry["p"][target], it["t"].get(target, it["title"]))
+        for a in order:
+            it = by_id[a["id"]]
+            if not it["text_orig"]:
+                continue
+            lang = src_by_id[it["source"]]["lang"]
+            entry = texts.setdefault(str(a["id"]), {"l": lang, "o": it["text_orig"], "p": {lang: it["text_orig"]}, "s": {}})
+            if target != lang and tr and (lang, target) in translate.PATHS:
+                if tr.has(it["text_orig"], lang, target, "long") or time.time() - t0 < budget:
+                    entry["p"][target] = tr.translate(it["text_orig"], lang, target, "long")
+                else:
+                    pending += 1
+            if target in entry["p"]:
+                entry["s"][target] = summary.summarize(entry["p"][target], it["t"].get(target, it["title"]))
     if tr:
         tr.save()
-        print(f"Volledige teksten vertaald in {time.time() - t0:.0f}s" + (f" ({pending} vertalingen volgen bij de volgende update)" if pending else ""))
+        print(f"Volledige teksten vertaald in {time.time() - t0:.0f}s" + (f" ({pending} vertalingen volgen later)" if pending else ""))
 
     OUT_FILE.parent.mkdir(parents=True, exist_ok=True)
     sealed = vault.seal(texts, TEXTS_FILE)
@@ -524,12 +551,38 @@ def main():
         "langs": list(LANGUAGES),
         "stories": stories,
     }, ensure_ascii=False), "utf-8")
+    # "texts" verandert telkens de teksten opnieuw weggeschreven zijn: zo weet de app dat er vertalingen bij zijn
+    VERSION_FILE.write_text(json.dumps({"generated": now.isoformat(), "texts": datetime.now(timezone.utc).isoformat(),
+                                        "pending": pending}), "utf-8")
 
     articles.save_cache(page_cache, {it["link"] for it in items})
 
     multi = sum(1 for s in stories if len(s["articles"]) > 1)
     print(f"\n{len(items)} artikels -> {len(stories)} verhalen ({multi} met meerdere bronnen) -> {OUT_FILE}")
+    return pending
+
+
+def main(mode=""):
+    if mode == "--texts":
+        if not STATE_FILE.exists():
+            print("Geen tussenstand van stap 1 (--fast) gevonden: niets te doen.")
+            return
+        state = pickle.loads(STATE_FILE.read_bytes())
+        STATE_FILE.unlink()
+        used = state.pop("used")
+        state["tr"] = translate.Translator() if translate.AVAILABLE else None
+        if state["tr"]:
+            state["tr"].used |= used  # anders vergeet de cache de titels die stap 1 vertaalde
+        publish(state)
+        return
+    STATE_FILE.unlink(missing_ok=True)  # een tussenstand van een mislukte vorige run mag nooit oud nieuws terugzetten
+    state = collect()
+    if mode != "--fast":
+        publish(state)
+    elif publish(state, budget=0):  # enkel wat al vertaald is; is er nog werk, dan de tussenstand bewaren voor stap 2
+        tr = state.pop("tr")
+        STATE_FILE.write_bytes(pickle.dumps(state | {"used": tr.used if tr else set()}))
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1] if len(sys.argv) > 1 else "")
