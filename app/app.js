@@ -29,7 +29,7 @@ const I18N = {
   nl: {
     forYou: "Voor jou", sources: "Bronnen", settings: "Instellingen", install: "Installeer app", refresh: "Vernieuwen",
     newNews: "Nieuw nieuws beschikbaar", tapRefresh: "Tik om te vernieuwen", loading: "Nieuws laden…",
-    password: "Wachtwoord", open: "Openen", wrongPw: "Dat wachtwoord klopt niet.", loadFail: "Nieuws kon niet geladen worden. Ben je online?",
+    password: "Wachtwoord", open: "Openen", wrongPw: "Dat wachtwoord klopt niet.", loadFail: "Nieuws kon niet geladen worden. Ben je online?", startFail: "Feed Me kon niet goed starten.", reload: "Opnieuw laden",
     justNow: "zonet", ago: (x) => `${x} geleden`, h: "u", d: "d", updated: (x) => `Bijgewerkt ${x}`,
     broad: "Breed gedragen", broadSub: "Verhalen die door veel media gebracht worden", latest: "Net binnen", more: "Meer nieuws", all: "Alles ›",
     emptyTheme: "Nog geen nieuws in deze rubriek.", emptyAll: "Geen nieuws dat bij je instellingen past. Zet meer rubrieken aan in de instellingen.",
@@ -89,7 +89,7 @@ const I18N = {
   fr: {
     forYou: "Pour vous", sources: "Sources", settings: "Paramètres", install: "Installer l'app", refresh: "Actualiser",
     newNews: "Nouvelles actualités disponibles", tapRefresh: "Touchez pour actualiser", loading: "Chargement…",
-    password: "Mot de passe", open: "Ouvrir", wrongPw: "Ce mot de passe est incorrect.", loadFail: "Impossible de charger les actualités. Êtes-vous en ligne ?",
+    password: "Mot de passe", open: "Ouvrir", wrongPw: "Ce mot de passe est incorrect.", loadFail: "Impossible de charger les actualités. Êtes-vous en ligne ?", startFail: "Feed Me n'a pas pu démarrer correctement.", reload: "Recharger",
     justNow: "à l'instant", ago: (x) => `il y a ${x}`, h: "h", d: "j", updated: (x) => `Mis à jour ${x}`,
     broad: "Largement relayé", broadSub: "Des sujets couverts par de nombreux médias", latest: "Dernières nouvelles", more: "Plus d'actualités", all: "Tout ›",
     emptyTheme: "Pas encore d'actualités dans cette rubrique.", emptyAll: "Aucune actualité ne correspond à vos paramètres. Activez plus de rubriques dans les paramètres.",
@@ -145,7 +145,7 @@ const I18N = {
   en: {
     forYou: "For you", sources: "Sources", settings: "Settings", install: "Install app", refresh: "Refresh",
     newNews: "New stories available", tapRefresh: "Tap to refresh", loading: "Loading news…",
-    password: "Password", open: "Open", wrongPw: "That password is incorrect.", loadFail: "The news could not be loaded. Are you online?",
+    password: "Password", open: "Open", wrongPw: "That password is incorrect.", loadFail: "The news could not be loaded. Are you online?", startFail: "Feed Me could not start properly.", reload: "Reload",
     justNow: "just now", ago: (x) => `${x} ago`, h: "h", d: "d", updated: (x) => `Updated ${x}`,
     broad: "Widely covered", broadSub: "Stories covered by many outlets", latest: "Just in", more: "More news", all: "All ›",
     emptyTheme: "No news in this section yet.", emptyAll: "No news matches your settings. Turn on more sections in the settings.",
@@ -224,6 +224,44 @@ const state = {
 };
 const feed = document.getElementById("feed");
 const reader = document.getElementById("reader");
+
+// --- vangnet: de pagina (index.html) kan even een oudere versie zijn dan deze code ---
+// GitHub en de offline-opslag bewaren kopieën tot ± 10 minuten na een update. Ontbreekt er daardoor een onderdeel,
+// dan maken we het hier zelf aan, zodat de app nooit blijft hangen op "Nieuws laden…".
+(function ensureShell() {
+  if (document.getElementById("progress")) return;
+  const bar = document.getElementById("newsbar");
+  let box = document.querySelector(".float");
+  if (!box) {
+    box = document.createElement("div");
+    box.className = "float";
+    document.body.insertBefore(box, bar || feed);
+    if (bar) box.appendChild(bar);
+  }
+  const p = document.createElement("button");
+  p.id = "progress";
+  p.className = "progress";
+  p.hidden = true;
+  box.prepend(p);
+})();
+
+// Loopt het opstarten toch mis, dan één keer opnieuw laden met een vers adres (zonder bewaarde kopie);
+// lukt ook dat niet, dan een knop in plaats van een leeg scherm.
+const RELOAD_KEY = "fm-reloaded";
+function startFailed() {
+  if (state.data) return; // de app draait al: een fout in een onderdeel is geen reden om alles te herladen
+  let last = 0;
+  try { last = Number(sessionStorage.getItem(RELOAD_KEY)) || 0; } catch {}
+  if (Date.now() - last > 60000) {
+    try { sessionStorage.setItem(RELOAD_KEY, String(Date.now())); } catch {}
+    location.replace(`${location.pathname}?r=${Date.now()}${location.hash}`);
+    return;
+  }
+  feed.innerHTML = `<div class="status"><p>${esc(t().startFail)}</p><button class="btn" id="reload-app">${esc(t().reload)}</button></div>`;
+  document.getElementById("reload-app").addEventListener("click", () => location.replace(`${location.pathname}?r=${Date.now()}`));
+}
+window.addEventListener("error", startFailed);
+window.addEventListener("unhandledrejection", startFailed);
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const themeColor = (id) => THEME[id]?.color || "var(--accent)";
@@ -1220,6 +1258,7 @@ window.addEventListener("appinstalled", () => {
 
 // --- start ---
 (async function init() {
+  if (/[?&]r=\d/.test(location.search)) history.replaceState(null, "", location.pathname + location.hash); // ?r= van het vangnet weg
   applyLanguage();
   state.tab = load("tab", "voorjou");
   state.read = new Set(load("read", []));
@@ -1227,7 +1266,9 @@ window.addEventListener("appinstalled", () => {
   buildTabs();
   // eerst het nieuws dat al op dit toestel staat (de app is er meteen), daarna online het nieuwste halen
   const saved = await savedNews();
-  if (saved) { useNews(saved); render(); route(); }
+  if (saved) {
+    try { useNews(saved); render(); route(); } catch { state.data = null; } // onbruikbare kopie: gewoon het verse nieuws halen
+  }
   try {
     const fresh = await downloadNews();
     if (!state.data) { useNews(fresh); render(); route(); }
