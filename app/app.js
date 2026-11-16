@@ -54,6 +54,10 @@ const I18N = {
     articleLoading: "Artikel laden…", articlesFail: "De artikels konden niet geladen worden.",
     latestNews: (x) => `Je hebt het nieuwste nieuws (bijgewerkt ${x})`, refreshFail: "Vernieuwen lukt niet. Ben je online?",
     installed: "Feed Me staat nu als app tussen je apps.",
+    // voortgang van een update
+    pNews: "Nieuws", pTr: "Vertaling", pQueued: "wacht op GitHub", pWait: "wacht op nieuws", pLeft: (m) => `nog ± ${m} min`,
+    pSec: "nog even", pAlmost: "bijna klaar", pBusy: "nog bezig", pLive: "online zetten", pDone: "klaar", pNothing: "alles al vertaald",
+    pFail: "mislukt", pHide: "Tik om te verbergen", trDone: "De vertaalde artikels staan klaar.", trReady: "De vertaling staat klaar: tik om ze te tonen",
     // instellingen
     // wachtwoord voor de volledige artikels en zelf een update starten
     pwTitle: "Volledig artikel lezen", pwWhy: "De volledige artikels zijn beveiligd met een wachtwoord. Je hoeft het maar één keer in te geven.",
@@ -110,6 +114,9 @@ const I18N = {
     articleLoading: "Chargement de l'article…", articlesFail: "Impossible de charger les articles.",
     latestNews: (x) => `Vous avez les dernières actualités (mises à jour ${x})`, refreshFail: "Impossible d'actualiser. Êtes-vous en ligne ?",
     installed: "Feed Me est maintenant installé comme application.",
+    pNews: "Actualités", pTr: "Traduction", pQueued: "attend GitHub", pWait: "attend les actualités", pLeft: (m) => `encore ± ${m} min`,
+    pSec: "un instant", pAlmost: "presque fini", pBusy: "en cours", pLive: "mise en ligne", pDone: "terminé", pNothing: "déjà tout traduit",
+    pFail: "échec", pHide: "Touchez pour masquer", trDone: "Les articles traduits sont prêts.", trReady: "La traduction est prête : touchez pour l'afficher",
     pwTitle: "Lire l'article complet", pwWhy: "Les articles complets sont protégés par un mot de passe. Vous ne devez le saisir qu'une seule fois.",
     ghTitle: "Lancer soi-même une mise à jour",
     ghIntro: (m) => `GitHub saute parfois ses mises à jour planifiées pendant des heures. Avec une clé, ce bouton peut lancer lui-même une mise à jour (± ${m} minutes). Vous ne faites ceci qu'une seule fois :`,
@@ -163,6 +170,9 @@ const I18N = {
     articleLoading: "Loading article…", articlesFail: "The articles could not be loaded.",
     latestNews: (x) => `You have the latest news (updated ${x})`, refreshFail: "Refreshing failed. Are you online?",
     installed: "Feed Me is now installed as an app.",
+    pNews: "News", pTr: "Translation", pQueued: "waiting for GitHub", pWait: "waiting for news", pLeft: (m) => `± ${m} min left`,
+    pSec: "a moment", pAlmost: "almost done", pBusy: "still busy", pLive: "publishing", pDone: "done", pNothing: "all translated already",
+    pFail: "failed", pHide: "Tap to hide", trDone: "The translated articles are ready.", trReady: "The translation is ready: tap to show it",
     pwTitle: "Read the full article", pwWhy: "The full articles are protected with a password. You only need to enter it once.",
     ghTitle: "Start a news update yourself",
     ghIntro: (m) => `GitHub sometimes skips its scheduled updates for hours. With a key, this button can start an update itself (± ${m} minutes). You only do this once:`,
@@ -714,7 +724,7 @@ async function fillBody(story, a, retried = false) {
       : "";
     body.innerHTML = bullets +
       (foreign && has ? `<button class="toggle" id="toggle-orig">${state.showOriginal ? tr.showTr : tr.showOrig}</button>` : "") +
-      (foreign && !has ? `<p class="note">${tr.untranslated}</p>` : "") +
+      (foreign && !has ? `<p class="note" id="tr-note">${tr.untranslated}</p>` : "") +
       paragraphsHtml(paras);
     if (foreign && !has && !retried) retryTexts(story, a);
   } catch (e) {
@@ -838,6 +848,11 @@ reader.addEventListener("click", (e) => {
     location.replace(`#lees/${reader.dataset.story}/${v.dataset.version}`);
     return;
   }
+  if (e.target.closest("#load-tr")) {
+    const story = findStory(reader.dataset.story);
+    fillBody(story, story.articles[Number(reader.dataset.idx)], true);
+    return;
+  }
   if (e.target.closest("#toggle-orig")) {
     state.showOriginal = !state.showOriginal;
     const story = findStory(reader.dataset.story);
@@ -882,13 +897,14 @@ const ageMin = () => (Date.now() - new Date(state.data.generated)) / 60000;
 
 // --- zelf een update starten bij GitHub (GitHub slaat zijn eigen planning vaak urenlang over) ---
 const REPO = "JosCiv7/feed-me";
-const UPDATE_MIN = 8;  // zo lang duurt een update ongeveer
+const UPDATE_MIN = 4;  // zo lang duurt het ongeveer tot het nieuwe nieuws online staat
 const sheet = document.getElementById("sheet");
 
+// De sleutel gaat enkel naar api.github.com. Zonder sleutel kan de app de voortgang ook lezen (Feed Me is openbaar), maar minder vaak.
 async function github(path, token, options = {}) {
   return fetch(`https://api.github.com/repos/${REPO}${path}`, {
     ...options,
-    headers: { Accept: "application/vnd.github+json", Authorization: `Bearer ${token}`, ...(options.headers || {}) },
+    headers: { Accept: "application/vnd.github+json", ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(options.headers || {}) },
   });
 }
 
@@ -917,7 +933,182 @@ async function startUpdate(auto = false) {
   save("waiting", Date.now());
   toast(t().updStarted(UPDATE_MIN));
   watchUpdate();
+  trackUpdate(Date.now());
 }
+
+// --- voortgang van een update bij GitHub: een mini-balk voor het nieuws en één voor de vertaling ---
+// De app leest welke stap van de update bezig is (openbare informatie over Feed Me; met je sleutel mag ze dat vaker vragen).
+// De namen moeten gelijk blijven aan die in .github/workflows/update.yml. Hoe lang elke stap duurt, leert de app uit de vorige update.
+const STEP = { news: "Nieuws ophalen", newsLive: "Nieuws online zetten", texts: "Artikels vertalen", textsLive: "Vertalingen online zetten" };
+const STEP_SEC = { setup: 20, news: 170, newsLive: 12, texts: 240, textsLive: 12 }; // schatting zolang er geen vorige update gekend is
+const progressBox = document.getElementById("progress");
+const track = { id: null, since: 0, timer: null, turn: 0, active: false, times: null, newsAt: null, textsAt: null, closed: null };
+const secsSince = (a, b) => Math.max(0, ((b ? new Date(b) : new Date()) - new Date(a)) / 1000);
+
+async function stepTimes(token) {
+  const saved = load("steptimes", null);
+  if (saved && Date.now() - saved.at < 12 * 3600000) return saved.t;
+  const times = { ...STEP_SEC };
+  try {
+    const res = await github("/actions/workflows/update.yml/runs?status=success&per_page=1", token);
+    const run = res.ok ? (await res.json()).workflow_runs?.[0] : null;
+    const jobs = run ? await github(`/actions/runs/${run.id}/jobs`, token) : null;
+    const steps = jobs?.ok ? (await jobs.json()).jobs?.[0]?.steps || [] : [];
+    for (const [k, name] of Object.entries(STEP)) {
+      const s = steps.find((x) => x.name === name);
+      if (s?.conclusion === "success" && s.started_at && s.completed_at) times[k] = Math.max(5, secsSince(s.started_at, s.completed_at));
+    }
+  } catch {}
+  save("steptimes", { at: Date.now(), t: times });
+  return times;
+}
+
+// Een balk bestaat uit delen {start, end, est}. Duurt een deel langer dan geschat, dan kruipt de balk nog wat verder
+// (nooit tot 100 %) in plaats van stil te staan.
+function partsProgress(parts) {
+  let total = 0, done = 0, left = 0, over = false;
+  for (const p of parts) {
+    total += p.est;
+    if (p.end) { done += p.est; continue; }
+    if (!p.start) { left += p.est; continue; }
+    const e = secsSince(p.start);
+    const frac = e < p.est ? (0.9 * e) / p.est : 0.9 + 0.08 * (1 - Math.exp(-(e - p.est) / p.est));
+    done += frac * p.est;
+    left += Math.max(0, p.est - e);
+    if (e > p.est && !p.prep) over = true; // het opstarten bij GitHub telt niet als "bijna klaar"
+  }
+  return { pct: Math.min(99, Math.round((100 * done) / total)), left, over };
+}
+
+function progressOf(job, times) {
+  const steps = job?.steps || [];
+  const step = (k) => steps.find((x) => x.name === STEP[k]) || {};
+  const news = step("news"), newsLive = step("newsLive"), texts = step("texts"), textsLive = step("textsLive");
+  const ended = (x) => (x.status === "completed" ? x.completed_at || true : null);
+  const skipped = textsLive.conclusion === "skipped"; // niets meer te vertalen: de vertaalde versie werd niet opnieuw online gezet
+  return {
+    queued: !job || !job.started_at || job.status === "queued" || job.status === "waiting",
+    failed: job?.status === "completed" && job.conclusion !== "success",
+    finished: job?.status === "completed",
+    n: partsProgress([
+      { start: job?.started_at, end: news.started_at || ended(news), est: times.setup, prep: true },
+      { start: news.started_at, end: ended(news), est: times.news },
+      { start: newsLive.started_at, end: ended(newsLive), est: times.newsLive },
+    ]),
+    newsStart: news.started_at,
+    newsDone: Boolean(ended(newsLive)) && newsLive.conclusion === "success",
+    newsLiving: Boolean(newsLive.started_at) && !ended(newsLive),
+    x: partsProgress([
+      { start: texts.started_at, end: ended(texts), est: Math.max(times.texts, 90) },
+      { start: textsLive.started_at, end: ended(textsLive), est: times.textsLive },
+    ]),
+    textsStart: texts.started_at,
+    textsStarted: Boolean(texts.started_at),
+    textsDone: Boolean(ended(textsLive)) && (textsLive.conclusion === "success" || skipped),
+    textsLiving: Boolean(textsLive.started_at) && !ended(textsLive),
+    skipped,
+  };
+}
+
+function drawProgress(p) {
+  if (track.closed && track.closed === track.id) return; // weggetikt voor deze update
+  const tr = t();
+  const left = (s) => (s < 50 ? tr.pSec : tr.pLeft(Math.max(1, Math.round(s / 60))));
+  const newsText = p.newsDone ? tr.pDone : p.failed ? tr.pFail : p.queued ? tr.pQueued
+    : p.newsLiving ? tr.pLive : p.n.over ? tr.pAlmost : left(p.n.left);
+  const textsText = p.textsDone ? (p.skipped ? tr.pNothing : tr.pDone) : p.failed ? tr.pFail : !p.textsStarted ? tr.pWait
+    : p.textsLiving ? tr.pLive : p.x.over ? tr.pBusy : left(p.x.left);
+  const row = (label, pct, text, wait) =>
+    `<span class="prow"><span>${esc(label)}</span><span class="pbar${wait ? " wait" : ""}"><i style="width:${pct}%"></i></span><span class="pt">${esc(text)}</span></span>`;
+  progressBox.innerHTML = row(tr.pNews, p.newsDone ? 100 : p.n.pct, newsText, p.queued && !p.failed)
+    + row(tr.pTr, p.textsDone ? 100 : p.textsStarted ? p.x.pct : 0, textsText, false);
+  progressBox.title = tr.pHide;
+  progressBox.hidden = false;
+}
+
+// GitHub Pages heeft even nodig om een nieuwe versie te tonen: een paar keer nakijken of ze er al is
+function whenOnline(kind, startedAt, tries = 0) {
+  setTimeout(async () => {
+    try {
+      const v = await (await fetch(`data/version.json?t=${Date.now()}`, { cache: "no-store" })).json();
+      if (new Date(kind === "news" ? v.generated : v.texts) < new Date(startedAt || 0) - 5000) throw new Error("nog niet online");
+      if (kind === "texts") textsReady(v);
+      else if (v.generated > state.data.generated) { if (load("waiting", 0)) stopWatching(); offerNews(await downloadNews()); }
+    } catch {
+      if (tries < 5) whenOnline(kind, startedAt, tries + 1);
+    }
+  }, [10, 20, 30, 60, 90, 120][tries] * 1000);
+}
+
+// de vertaalde artikels staan online: voortaan die ophalen. Een open artikel verandert niet vanzelf; je krijgt een knop.
+function textsReady(v) {
+  if (v.generated !== state.data.generated) return; // nieuw nieuws nog niet geopend: de melding bovenaan volstaat
+  textsRev = v.texts;
+  textsJob = { key: null, promise: null };
+  if (state.password && state.data.texts) ensureTexts().catch(() => {});
+  const note = document.getElementById("tr-note");
+  if (note) note.outerHTML = `<button class="toggle" id="load-tr">${esc(t().trReady)}</button>`;
+  toast(t().trDone);
+}
+
+// Volg een lopende update. since = tijdstip waarop de app er zelf een startte (GitHub toont ze soms pas na enkele seconden).
+async function trackUpdate(since = 0) {
+  if (since) track.since = since;
+  clearTimeout(track.timer);
+  track.active = true;
+  if (document.hidden) return; // verder zodra je terug in de app bent
+  const turn = ++track.turn; // er loopt altijd maar één opvolging tegelijk
+  const token = load("ghtoken", null);
+  const next = (ms = token ? 8000 : 60000) => { // zonder sleutel mag je GitHub maar 60 keer per uur iets vragen
+    if (turn === track.turn) track.timer = setTimeout(() => trackUpdate(), ms);
+  };
+  try {
+    if (!track.id) {
+      const res = await github("/actions/workflows/update.yml/runs?per_page=5", token);
+      if (!res.ok) throw new Error(res.status);
+      const runs = (await res.json()).workflow_runs || [];
+      const run = runs.find((r) => r.status === "in_progress") || runs.find((r) => r.status !== "completed");
+      if (turn !== track.turn) return;
+      if (!run) {
+        if (Date.now() - track.since < 90000) next(token ? 5000 : 30000);
+        else stopTrack();
+        return;
+      }
+      track.id = run.id;
+      track.newsAt = track.textsAt = null;
+      track.times = await stepTimes(token);
+    }
+    const res = await github(`/actions/runs/${track.id}/jobs`, token);
+    if (!res.ok) throw new Error(res.status);
+    const job = (await res.json()).jobs?.[0];
+    if (turn !== track.turn) return;
+    const p = progressOf(job, track.times);
+    drawProgress(p);
+    if (p.newsDone && !track.newsAt) { track.newsAt = p.newsStart || true; whenOnline("news", p.newsStart); }
+    if (p.textsDone && !track.textsAt) { track.textsAt = p.textsStart || true; if (!p.skipped) whenOnline("texts", p.textsStart); }
+    if (p.finished) {
+      // nog even "klaar" tonen; daarna kijken of er nog een update wacht, anders verdwijnt de balk
+      track.id = null;
+      track.since = 0;
+      next(token ? 10000 : 60000);
+      return;
+    }
+    next();
+  } catch {
+    if (turn === track.turn) stopTrack(); // offline of te vaak gevraagd: de gewone meldingen blijven werken
+  }
+}
+function stopTrack() {
+  clearTimeout(track.timer);
+  track.active = false;
+  track.id = null;
+  progressBox.hidden = true;
+}
+progressBox.addEventListener("click", () => {
+  track.closed = track.id;
+  progressBox.hidden = true;
+});
+document.addEventListener("visibilitychange", () => { if (!document.hidden && track.active) trackUpdate(); });
 
 // tijdens het wachten elke 30 s kijken of het nieuwe nieuws er is
 let watchTimer = null;
@@ -988,6 +1179,7 @@ newsBar.addEventListener("click", () => { if (pending) showNews(pending); });
 async function checkForNews() {
   if (!state.data || document.hidden || Date.now() - lastCheck < 5 * 60000) return;
   lastCheck = Date.now();
+  if (!track.active) trackUpdate(); // loopt er een update bij GitHub? dan de voortgang tonen
   try {
     if (await latestStamp() > state.data.generated) offerNews(await downloadNews());
     else autoUpdate();
@@ -1047,6 +1239,7 @@ window.addEventListener("appinstalled", () => {
     // teksten alvast op de achtergrond ontsleutelen, zodat artikels meteen openen
     if (state.password && state.data.texts) ensureTexts().catch(() => {});
     autoUpdate();
+    if (!track.active) trackUpdate(); // loopt er al een update bij GitHub? dan de voortgang tonen
   } catch {
     if (!state.data) feed.innerHTML = `<p class="status">${t().loadFail}</p>`;
   }

@@ -48,8 +48,10 @@ jobs:
           restore-keys: feed-cache-
 
       # FEEDME_KEY = wachtwoord waarmee de volledige artikels versleuteld worden
-      # Stap 1: nieuws ophalen en titels vertalen, en dat meteen online zetten (± 2 minuten)
-      - run: python fetcher/fetch_news.py --fast
+      # Stap 1: nieuws ophalen en titels vertalen, en dat meteen online zetten (± 3 minuten)
+      # De namen van deze stappen leest de app om de voortgang te tonen (STEP in app/app.js): niet wijzigen zonder ook daar.
+      - name: Nieuws ophalen
+        run: python fetcher/fetch_news.py --fast
         env:
           FEEDME_KEY: ${{ secrets.FEEDME_KEY }}
 
@@ -58,12 +60,14 @@ jobs:
         with:
           name: pages-stap1
           path: app
-      - uses: actions/deploy-pages@v4
+      - name: Nieuws online zetten
+        uses: actions/deploy-pages@v4
         with:
           artifact_name: pages-stap1
 
       # Stap 2: de volledige artikels vertalen en opnieuw online zetten (doet niets als alles al vertaald was)
-      - id: texts
+      - name: Artikels vertalen
+        id: texts
         run: |
           if [ -f fetcher/cache/state.pkl ]; then
             python fetcher/fetch_news.py --texts
@@ -76,7 +80,8 @@ jobs:
         with:
           name: pages-stap2
           path: app
-      - if: steps.texts.outputs.again == 'true'
+      - name: Vertalingen online zetten
+        if: steps.texts.outputs.again == 'true'
         id: deploy
         uses: actions/deploy-pages@v4
         with:

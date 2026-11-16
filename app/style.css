@@ -110,16 +110,31 @@ button { font: inherit; color: inherit; }
 .tabs button.active { color: var(--ink); border-bottom-color: var(--c); }
 
 /* --- melding nieuw nieuws --- */
+.float {
+  position: fixed; z-index: 20; left: 16px; right: 16px; top: calc(env(safe-area-inset-top) + 112px);
+  display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none;
+}
+.float > * { pointer-events: auto; }
 .newsbar {
-  position: fixed; z-index: 20; left: 16px; right: 16px; width: fit-content; margin: 0 auto;
-  top: calc(env(safe-area-inset-top) + 112px);
   display: flex; flex-direction: column; align-items: center; gap: 1px;
   border: 0; border-radius: 999px; padding: 8px 18px; cursor: pointer;
   background: var(--ink); color: var(--bg); box-shadow: 0 4px 14px rgb(0 0 0 / 0.25);
 }
 .newsbar b { font-size: 14.5px; }
 .newsbar span { font-size: 12.5px; opacity: 0.8; }
-.newsbar[hidden], .toast[hidden], .sheet[hidden] { display: none; }
+.newsbar[hidden], .toast[hidden], .sheet[hidden], .progress[hidden] { display: none; }
+/* voortgang van een update: twee mini-balken (nieuws, vertaling) */
+.progress {
+  display: grid; gap: 6px; width: min(100%, 320px); padding: 9px 14px; border: 0; border-radius: 14px; cursor: pointer;
+  background: var(--ink); color: var(--bg); box-shadow: 0 4px 14px rgb(0 0 0 / 0.25); font: 600 12.5px/1.2 var(--sans); text-align: left;
+}
+.prow { display: grid; grid-template-columns: 66px 1fr auto; align-items: center; gap: 10px; }
+.pbar { height: 5px; border-radius: 3px; overflow: hidden; background: color-mix(in srgb, currentColor 22%, transparent); }
+.pbar i { display: block; height: 100%; border-radius: inherit; background: var(--brand); transition: width 0.8s ease; }
+.pbar.wait i { width: 35% !important; animation: pwait 1.3s ease-in-out infinite; }
+@keyframes pwait { from { transform: translateX(-100%); } to { transform: translateX(290%); } }
+.pt { min-width: 76px; text-align: right; font-weight: 500; opacity: 0.8; white-space: nowrap; }
+@media (prefers-reduced-motion: reduce) { .pbar i { transition: none; } .pbar.wait i { animation: none; } }
 .icon-btn.busy::after { content: ""; position: absolute; width: 8px; height: 8px; border-radius: 50%; background: var(--brand-ink); transform: translate(12px, -12px); }
 .icon-btn { position: relative; }
 .sheet {
@@ -156,9 +171,11 @@ main { max-width: 760px; margin: 0 auto; padding: 0 0 48px; }
 .meta { display: flex; align-items: center; flex-wrap: wrap; gap: 3px 8px; font-size: 13px; color: var(--muted); margin-top: 6px; }
 .meta .src { font-weight: 700; color: var(--ink); }
 /* onder een titel: altijd één regel (bron · tijd · aantal bronnen); een lange bronnaam wordt ingekort */
-.meta.one { flex-wrap: nowrap; white-space: nowrap; }
+.meta.one { flex-wrap: nowrap; white-space: nowrap; overflow: hidden; } /* nooit breder dan de kaart */
 .meta.one > * { flex: none; }
 .meta.one .src { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* in de smalle kaarten van het raster: liever twee nette regels dan een afgekapte bronnaam */
+.card .meta.one { flex-wrap: wrap; }
 .lang { font-size: 10.5px; font-weight: 700; border: 1px solid var(--line); border-radius: 3px; padding: 0 4px; letter-spacing: 0.02em; }
 .count { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; }
 .bar { display: inline-flex; width: 34px; height: 6px; border-radius: 3px; overflow: hidden; background: var(--line); }
@@ -178,11 +195,11 @@ h2, h3 { font-family: var(--serif); font-weight: 700; letter-spacing: -0.005em; 
 .lead p { margin: 0; color: var(--muted); font-size: 15.5px; line-height: 1.45; }
 
 /* --- raster van 2 --- */
-.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 14px; padding: 16px; border-bottom: 1px solid var(--line); }
+.grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px 14px; padding: 16px; border-bottom: 1px solid var(--line); }
 .card .img { aspect-ratio: 3 / 2; border-radius: 4px; margin-bottom: 8px; }
 .card h3 { margin: 0; font-size: 16px; line-height: 1.25; }
 .card .meta { font-size: 12px; }
-@media (min-width: 640px) { .grid { grid-template-columns: repeat(4, 1fr); } }
+@media (min-width: 640px) { .grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 
 /* --- rubriekblokken --- */
 .block { padding: 0 16px; margin-top: 22px; }
@@ -202,22 +219,22 @@ h2, h3 { font-family: var(--serif); font-weight: 700; letter-spacing: -0.005em; 
 .mid h3 { margin: 0; font-size: 20px; line-height: 1.22; }
 
 .row {
-  display: grid; grid-template-columns: 1fr 104px; gap: 12px; align-items: start;
+  display: grid; grid-template-columns: minmax(0, 1fr) 104px; gap: 12px; align-items: start;
   padding: 14px 0; border-bottom: 1px solid var(--line);
 }
 .row h3 { margin: 0; font-size: 16.5px; line-height: 1.27; }
 .row .img { width: 104px; height: 70px; border-radius: 4px; }
-.row.noimg { grid-template-columns: 1fr; }
+.row.noimg { grid-template-columns: minmax(0, 1fr); }
 .block > .row:last-child, .block > .mid:last-child { border-bottom: 0; }
 
-.rank { display: grid; grid-template-columns: 30px 1fr 96px; gap: 10px; align-items: start; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.rank { display: grid; grid-template-columns: 30px minmax(0, 1fr) 96px; gap: 10px; align-items: start; padding: 12px 0; border-bottom: 1px solid var(--line); }
 .rank .img { width: 96px; height: 72px; border-radius: 4px; }
 .rank .n { font-family: var(--serif); font-size: 28px; font-weight: 700; line-height: 1; color: var(--brand); }
 .rank h3 { margin: 0; font-size: 16.5px; line-height: 1.27; }
-.rank.noimg { grid-template-columns: 30px 1fr; }
+.rank.noimg { grid-template-columns: 30px minmax(0, 1fr); }
 .rank:last-child { border-bottom: 0; }
 
-.latest { display: grid; grid-template-columns: 50px 1fr; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.latest { display: grid; grid-template-columns: 50px minmax(0, 1fr); gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--line); }
 .latest time { font-weight: 700; font-size: 14px; color: var(--brand); padding-top: 1px; }
 .latest h3 { margin: 0; font-family: inherit; font-size: 15px; font-weight: 600; line-height: 1.3; }
 .latest .meta { margin-top: 2px; }

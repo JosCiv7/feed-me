@@ -35,7 +35,11 @@
     <button data-tab="bronnen" data-i18n="sources">Bronnen</button>
   </nav>
 
-  <button id="newsbar" class="newsbar" hidden><b data-i18n="newNews">Nieuw nieuws</b><span data-i18n="tapRefresh">Tik om te vernieuwen</span></button>
+  <!-- bovenaan zwevend: de voortgang van een update en de melding dat er nieuw nieuws is -->
+  <div class="float">
+    <button id="progress" class="progress" hidden></button>
+    <button id="newsbar" class="newsbar" hidden><b data-i18n="newNews">Nieuw nieuws</b><span data-i18n="tapRefresh">Tik om te vernieuwen</span></button>
+  </div>
   <div id="toast" class="toast" role="status" hidden></div>
 
   <!-- uitleg om zelf een update te starten; de tekst komt uit app.js, in de gekozen taal -->

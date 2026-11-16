@@ -42,6 +42,7 @@ MAX_AGE_HOURS = 36
 MAX_ITEMS_PER_SOURCE = 40   # zodat één drukke bron de rest niet overspoelt
 MAX_PAGE_FETCHES = 500      # nieuwe artikelpagina's per run
 TRANSLATE_SECONDS = 300     # tijd voor het vertalen van volledige teksten per run (alle talen uit LANGUAGES samen; de rest volgt later)
+TEXTS_STEP_SECONDS = 540    # idem in stap 2 (--texts): de titels staan dan al online, dus mag het vertalen langer duren
 SIM_THRESHOLD = 0.3         # hoe gelijkaardig twee titels moeten zijn om hetzelfde nieuwsfeit te zijn
 
 # plaats en datum waarmee persbureaus hun bericht beginnen: "SEOUL, Nov. 14 (Yonhap) -- ", "(ANSA) - ROME, NOV 14 - "
@@ -573,7 +574,7 @@ def main(mode=""):
         state["tr"] = translate.Translator() if translate.AVAILABLE else None
         if state["tr"]:
             state["tr"].used |= used  # anders vergeet de cache de titels die stap 1 vertaalde
-        publish(state)
+        publish(state, budget=TEXTS_STEP_SECONDS)
         return
     STATE_FILE.unlink(missing_ok=True)  # een tussenstand van een mislukte vorige run mag nooit oud nieuws terugzetten
     state = collect()

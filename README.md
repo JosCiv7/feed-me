@@ -31,6 +31,12 @@ Een update zet het nieuws in twee stappen online: eerst de titels en samenvattin
 enkele minuten later de vertaalde volledige artikels (`fetch_news.py --texts`). Open je in de tussentijd een artikel
 dat nog niet vertaald is, dan zie je het origineel en haalt de app de vertaling op zodra ze er is.
 
+Loopt er een update, dan toont de app bovenaan een kleine balk met twee regels: **Nieuws** en **Vertaling**, elk met
+de geschatte resterende tijd (geleerd uit de vorige update). Tik erop om ze te verbergen. De app leest daarvoor bij
+GitHub welke stap bezig is; dat kan ook zonder sleutel, maar dan hoogstens één keer per minuut. Zijn de vertalingen
+klaar terwijl je een onvertaald artikel leest, dan verschijnt een knop om de vertaling te tonen; de tekst verandert
+nooit vanzelf. Wat in stap 2 niet binnen 9 minuten vertaald raakt, volgt bij de volgende update.
+
 ## Starten op je pc
 
 Dubbelklik op **Feed Me starten.bat**. Die haalt het nieuws op, leest en vertaalt de artikels en opent de app in je browser.
