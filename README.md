@@ -4,7 +4,7 @@ Persoonlijke nieuwsapp: België, Brussel, tech en de wereld via lokale bronnen, 
 Per nieuwsfeit zie je welke media erover berichten en uit welke politieke hoek ze komen, en lees je de
 meest neutrale versie volledig in de app, met een korte samenvatting in bullets. Franse, Spaanse en Engelse artikels worden gratis en offline naar het Nederlands vertaald.
 
-**Online:** https://josciv7.github.io/feed-me/ (wordt elke 30 minuten automatisch bijgewerkt door GitHub Actions)
+**Online:** https://josciv7.github.io/feed-me/ (bijgewerkt door GitHub Actions; zie "Hoe vaak het nieuws ververst")
 
 ## Op je Android installeren
 
@@ -36,6 +36,19 @@ de geschatte resterende tijd (geleerd uit de vorige update). Tik erop om ze te v
 GitHub welke stap bezig is; dat kan ook zonder sleutel, maar dan hoogstens één keer per minuut. Zijn de vertalingen
 klaar terwijl je een onvertaald artikel leest, dan verschijnt een knop om de vertaling te tonen; de tekst verandert
 nooit vanzelf. Wat in stap 2 niet binnen 9 minuten vertaald raakt, volgt bij de volgende update.
+
+## Hoe vaak het nieuws ververst
+
+De workflow vraagt GitHub elk kwartier een update te starten, en 's ochtends tussen 5 en 7 uur (Belgische wintertijd)
+nog vaker. GitHub voert daar in de praktijk maar een klein deel van uit: in november 2026 gemiddeld 3,4 updates per dag
+bij één aanvraag per halfuur. Daarom start de app zelf een update als je ze opent en het nieuws ouder is dan 45 minuten
+(met je GitHub-sleutel). Wil je echt elk halfuur nieuw nieuws, dan kan een externe dienst (bv. cron-job.org) de update
+starten met een aparte sleutel; daarvoor is in november 2026 bewust niet gekozen, omdat die sleutel dan bij een
+derde dienst staat.
+
+Mislukt het online zetten (GitHub vindt soms het net geüploade pakket niet), dan probeert de workflow het na 20 seconden
+opnieuw. Crasht het ophaalprogramma, dan start het nog één keer. De pakketversies voor GitHub staan vast in
+`requirements.lock`.
 
 ## Starten op je pc
 

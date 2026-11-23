@@ -15,6 +15,8 @@ try:
 except ImportError:
     AVAILABLE = False
 
+from translate import read_json, write_json  # noqa: E402  (veilig lezen en schrijven van cachebestanden)
+
 CACHE_FILE = Path(__file__).resolve().parent / "cache" / "articles.json"
 MIN_WORDS = 120
 
@@ -33,12 +35,11 @@ JUNK_RE = re.compile(
 
 
 def load_cache():
-    return json.loads(CACHE_FILE.read_text("utf-8")) if CACHE_FILE.exists() else {}
+    return read_json(CACHE_FILE)
 
 
 def save_cache(cache, keep_links):
-    CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    CACHE_FILE.write_text(json.dumps({k: v for k, v in cache.items() if k in keep_links}, ensure_ascii=False), "utf-8")
+    write_json(CACHE_FILE, {k: v for k, v in cache.items() if k in keep_links})
 
 
 def extract(page):
@@ -83,12 +84,24 @@ def og_image(page):
     return ""
 
 
+def download(link, fetch):
+    """Enkel de pagina downloaden (mag in parallelle draden): geeft (pagina, fout)."""
+    try:
+        return fetch(link, limit=1_500_000, timeout=15), None
+    except Exception as e:
+        return None, e
+
+
 def get(link, fetch):
     """Haal één artikel op (tekst + foto); geeft een cache-item terug."""
-    try:
-        page = fetch(link, limit=1_500_000, timeout=15)
-    except Exception as e:
-        reason = "geweigerd" if any(c in str(e) for c in ("401", "403", "429")) else "niet bereikbaar"
+    return parse(*download(link, fetch))
+
+
+def parse(page, error=None):
+    """Tekst en foto uit een gedownloade pagina halen. Altijd in de hoofddraad: de tekstlezer (lxml) liep in parallelle
+    draden af en toe vast met een crash ("free(): invalid pointer", 17/11/2026 op GitHub en 23/11 lokaal)."""
+    if page is None:
+        reason = "geweigerd" if any(c in str(error) for c in ("401", "403", "429")) else "niet bereikbaar"
         return {"p": [], "why": reason, "img": "", "retry": reason == "niet bereikbaar"}
     paras, why = extract(page) if AVAILABLE else ([], "geen tekstlezer")
     site = re.search(r'<meta[^>]+property="og:site_name"[^>]+content="([^"]+)"', page, re.I)

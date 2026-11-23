@@ -427,10 +427,13 @@ def collect():
     page_cache = articles.load_cache()
     todo = [it for it in items if it["link"] not in page_cache
             or page_cache[it["link"]].get("retry") and page_cache[it["link"]].get("tries", 1) < 3][:MAX_PAGE_FETCHES]
+    # downloaden in parallel, de tekst eruit halen één voor één (zie articles.parse)
     with concurrent.futures.ThreadPoolExecutor(12) as ex:
-        for it, entry in zip(todo, ex.map(lambda it: articles.get(it["link"], fetch), todo)):
-            entry["tries"] = page_cache.get(it["link"], {}).get("tries", 0) + 1
-            page_cache[it["link"]] = entry
+        pages = list(ex.map(lambda it: articles.download(it["link"], fetch), todo))
+    for it, (page, error) in zip(todo, pages):
+        entry = articles.parse(page, error)
+        entry["tries"] = page_cache.get(it["link"], {}).get("tries", 0) + 1
+        page_cache[it["link"]] = entry
 
     def prepare(it):
         entry = page_cache.get(it["link"], {})

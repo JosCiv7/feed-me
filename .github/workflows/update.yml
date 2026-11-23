@@ -1,10 +1,13 @@
-# Haalt elke 30 minuten het nieuws op, vertaalt het en zet de app online via GitHub Pages.
+# Haalt het nieuws op, vertaalt het en zet de app online via GitHub Pages.
 name: Nieuws bijwerken
 
 on:
   schedule:
-    # niet op :00 en :30: dan is GitHub het drukst en slaat het geplande taken vaak over
-    - cron: "13,43 * * * *"
+    # GitHub voert maar een klein deel van de geplande runs echt uit (gemeten in november 2026: ± 3,4 per dag bij
+    # één per halfuur). Hoe meer momenten, hoe meer kans; nooit op :00 of :30, dan is GitHub het drukst.
+    - cron: "7,22,37,52 * * * *"
+    # 's ochtends extra kansen: 4-6 uur UTC = 5-7 uur Belgische tijd in de winter (6-8 uur in de zomer)
+    - cron: "2,12,17,27,32,42,47,57 4-5 * * *"
   workflow_dispatch:
   push:
     branches: [main]
@@ -32,7 +35,8 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - run: pip install -r requirements.txt
+      # vaste versies (requirements.lock): een nieuwe versie van een pakket kan de update niet onverwacht breken
+      - run: pip install -r requirements.txt -c requirements.lock
 
       # vertaalmodellen (± 170 MB) maar één keer downloaden
       - uses: actions/cache@v4
@@ -50,8 +54,14 @@ jobs:
       # FEEDME_KEY = wachtwoord waarmee de volledige artikels versleuteld worden
       # Stap 1: nieuws ophalen en titels vertalen, en dat meteen online zetten (± 3 minuten)
       # De namen van deze stappen leest de app om de voortgang te tonen (STEP in app/app.js): niet wijzigen zonder ook daar.
+      # -u: alles meteen in het logboek, ook als het programma crasht. Crasht het toch, dan nog één keer proberen.
       - name: Nieuws ophalen
-        run: python fetcher/fetch_news.py --fast
+        run: |
+          python -u fetcher/fetch_news.py --fast || {
+            echo "::warning::Het ophalen liep vast; nog één keer proberen"
+            sleep 10
+            python -u fetcher/fetch_news.py --fast
+          }
         env:
           FEEDME_KEY: ${{ secrets.FEEDME_KEY }}
 
@@ -61,16 +71,31 @@ jobs:
           name: pages-stap1
           path: app
       - name: Nieuws online zetten
+        id: live1
+        continue-on-error: true
         uses: actions/deploy-pages@v4
         with:
           artifact_name: pages-stap1
+      # GitHub vindt het net geüploade pakket soms niet ("No artifacts named ... were found"): even wachten en opnieuw
+      - if: steps.live1.outcome == 'failure'
+        run: sleep 20
+      - if: steps.live1.outcome == 'failure'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          name: pages-stap1-opnieuw
+          path: app
+      - name: Nieuws online zetten (opnieuw)
+        if: steps.live1.outcome == 'failure'
+        uses: actions/deploy-pages@v4
+        with:
+          artifact_name: pages-stap1-opnieuw
 
       # Stap 2: de volledige artikels vertalen en opnieuw online zetten (doet niets als alles al vertaald was)
       - name: Artikels vertalen
         id: texts
         run: |
           if [ -f fetcher/cache/state.pkl ]; then
-            python fetcher/fetch_news.py --texts
+            python -u fetcher/fetch_news.py --texts
             echo "again=true" >> "$GITHUB_OUTPUT"
           fi
         env:
@@ -83,9 +108,22 @@ jobs:
       - name: Vertalingen online zetten
         if: steps.texts.outputs.again == 'true'
         id: deploy
+        continue-on-error: true
         uses: actions/deploy-pages@v4
         with:
           artifact_name: pages-stap2
+      - if: steps.deploy.outcome == 'failure'
+        run: sleep 20
+      - if: steps.deploy.outcome == 'failure'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          name: pages-stap2-opnieuw
+          path: app
+      - name: Vertalingen online zetten (opnieuw)
+        if: steps.deploy.outcome == 'failure'
+        uses: actions/deploy-pages@v4
+        with:
+          artifact_name: pages-stap2-opnieuw
 
       # GitHub zet geplande taken stil na 60 dagen zonder commits; dit houdt de app levend
       - name: Keepalive

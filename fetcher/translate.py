@@ -40,6 +40,22 @@ except ImportError:
     AVAILABLE = False
 
 
+def read_json(path):
+    """Lees een cachebestand; ontbreekt het of is het beschadigd (bv. na een crash tijdens het schrijven), dan leeg beginnen."""
+    try:
+        return json.loads(path.read_text("utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def write_json(path, obj):
+    """Schrijf eerst naar een tijdelijk bestand en vervang dan pas: zo is het bestand nooit half geschreven."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(obj, ensure_ascii=False), "utf-8")
+    tmp.replace(path)
+
+
 def _model_dir(src, tgt):
     return MODELS_DIR / f"{src}_{tgt}"
 
@@ -299,7 +315,7 @@ def make_engine(name=None, kind="short"):
 
 class Translator:
     def __init__(self, engine=None):
-        self.cache = json.loads(CACHE_FILE.read_text("utf-8")) if CACHE_FILE.exists() else {}
+        self.cache = read_json(CACHE_FILE)
         self.used = set()
         self.engines = {"short": make_engine(engine, "short")}
         long = make_engine(engine, "long")
@@ -342,4 +358,4 @@ class Translator:
 
     def save(self):
         CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
-        CACHE_FILE.write_text(json.dumps({k: v for k, v in self.cache.items() if k in self.used}, ensure_ascii=False), "utf-8")
+        write_json(CACHE_FILE, {k: v for k, v in self.cache.items() if k in self.used})

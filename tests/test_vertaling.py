@@ -120,5 +120,34 @@ class Europa(unittest.TestCase):
         self.assertNotIn("europa", item["sections"])
 
 
+class Updates(unittest.TestCase):
+    def test_beschadigde_cache_laat_de_update_niet_vastlopen(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            f = Path(d) / "cache.json"
+            f.write_text('{"half geschreven": ', "utf-8")
+            self.assertEqual(translate.read_json(f), {})
+            self.assertEqual(translate.read_json(Path(d) / "bestaat-niet.json"), {})
+            translate.write_json(f, {"a": "b"})
+            self.assertEqual(translate.read_json(f), {"a": "b"})
+            self.assertFalse(f.with_suffix(".tmp").exists())
+
+    def test_stapnamen_in_workflow_en_app_kloppen(self):
+        import re
+        root = Path(__file__).resolve().parent.parent
+        workflow = (root / ".github" / "workflows" / "update.yml").read_text("utf-8")
+        app = (root / "app" / "app.js").read_text("utf-8")
+        names = re.search(r"const STEP = \{(.*?)\};", app).group(1)
+        for name in re.findall(r'"([^"]+)"', names):
+            self.assertIn(f"- name: {name}\n", workflow, name)
+
+    def test_versies_vastgelegd(self):
+        root = Path(__file__).resolve().parent.parent
+        self.assertIn("-c requirements.lock", (root / ".github" / "workflows" / "update.yml").read_text("utf-8"))
+        lock = (root / "requirements.lock").read_text("utf-8")
+        for pkg in ("ctranslate2==", "sentencepiece==", "trafilatura==", "cryptography=="):
+            self.assertIn(pkg, lock)
+
+
 if __name__ == "__main__":
     unittest.main()

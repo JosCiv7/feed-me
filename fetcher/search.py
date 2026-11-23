@@ -12,6 +12,8 @@ import urllib.parse
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from translate import read_json, write_json  # noqa: E402
+
 CACHE_FILE = Path(__file__).resolve().parent / "cache" / "search.json"
 SEARCH_URL = "https://www.bing.com/news/search?format=rss&setlang=nl-BE&cc=BE&q="
 MAX_SEARCHES = 40          # zoekopdrachten per run (rustig voor Bing)
@@ -94,7 +96,7 @@ def find_free(groups, items, ctx):
 
     ctx: dict met fetch, parse_feed, tokens, is_blocked, get_page (link -> cache-item), now
     """
-    cache = json.loads(CACHE_FILE.read_text("utf-8")) if CACHE_FILE.exists() else {}
+    cache = read_json(CACHE_FILE)
     tokens, now = ctx["tokens"], ctx["now"]
 
     df = {}
@@ -129,8 +131,7 @@ def find_free(groups, items, ctx):
         if entry["hit"] and (entry["hit"]["domain"] in TRUSTED_DOMAINS or entry["hit"]["domain"] in ctx["known_domains"]):
             found.append((g, entry["hit"]))
 
-    CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    CACHE_FILE.write_text(json.dumps({k: v for k, v in cache.items() if k in keep}, ensure_ascii=False), "utf-8")
+    write_json(CACHE_FILE, {k: v for k, v in cache.items() if k in keep})
     print(f"Vrije versies gezocht voor {searches} verhalen achter een muur; {len(found)}/{len(walled)} gevonden")
     return found
 

@@ -1021,7 +1021,10 @@ function partsProgress(parts) {
 function progressOf(job, times) {
   const steps = job?.steps || [];
   const step = (k) => steps.find((x) => x.name === STEP[k]) || {};
-  const news = step("news"), newsLive = step("newsLive"), texts = step("texts"), textsLive = step("textsLive");
+  const news = step("news"), texts = step("texts");
+  // lukte het online zetten pas bij de tweede poging, dan telt die (zie "(opnieuw)" in update.yml)
+  const retry = (k) => steps.find((x) => x.name === `${STEP[k]} (opnieuw)` && x.status === "completed" && x.conclusion === "success");
+  const newsLive = retry("newsLive") || step("newsLive"), textsLive = retry("textsLive") || step("textsLive");
   const ended = (x) => (x.status === "completed" ? x.completed_at || true : null);
   const skipped = textsLive.conclusion === "skipped"; // niets meer te vertalen: de vertaalde versie werd niet opnieuw online gezet
   return {
