@@ -141,6 +141,20 @@ class Updates(unittest.TestCase):
         for name in re.findall(r'"([^"]+)"', names):
             self.assertIn(f"- name: {name}\n", workflow, name)
 
+    def test_herkansingen_gebruiken_hetzelfde_pakket(self):
+        # een nieuw pakket uploaden voor de herkansing botst weer op dezelfde vertraging bij GitHub
+        import re
+        root = Path(__file__).resolve().parent.parent
+        workflow = (root / ".github" / "workflows" / "update.yml").read_text("utf-8")
+        app = (root / "app" / "app.js").read_text("utf-8")
+        suffixes = re.findall(r'"([^"]*)"', re.search(r"const RETRIES = \[(.*?)\];", app).group(1))
+        for base, art in (("Nieuws online zetten", "pages-stap1"), ("Vertalingen online zetten", "pages-stap2")):
+            for s in suffixes:
+                block = re.search(rf"- name: {re.escape(base + s)}\n(.*?)(?=\n      - )", workflow, re.S)
+                self.assertIsNotNone(block, base + s)
+                self.assertIn(f"artifact_name: {art}\n", block.group(1) + "\n", base + s)
+            self.assertEqual(len(re.findall(rf"^\s+name: {art}$", workflow, re.M)), 1, f"{art} maar één keer uploaden")
+
     def test_versies_vastgelegd(self):
         root = Path(__file__).resolve().parent.parent
         self.assertIn("-c requirements.lock", (root / ".github" / "workflows" / "update.yml").read_text("utf-8"))

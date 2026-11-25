@@ -978,6 +978,7 @@ async function startUpdate(auto = false) {
 // De app leest welke stap van de update bezig is (openbare informatie over Feed Me; met je sleutel mag ze dat vaker vragen).
 // De namen moeten gelijk blijven aan die in .github/workflows/update.yml. Hoe lang elke stap duurt, leert de app uit de vorige update.
 const STEP = { news: "Nieuws ophalen", newsLive: "Nieuws online zetten", texts: "Artikels vertalen", textsLive: "Vertalingen online zetten" };
+const RETRIES = ["", " (opnieuw)", " (laatste poging)"]; // achtervoegsels van de pogingen om online te zetten
 const STEP_SEC = { setup: 20, news: 170, newsLive: 12, texts: 240, textsLive: 12 }; // schatting zolang er geen vorige update gekend is
 const progressBox = document.getElementById("progress");
 const track = { id: null, since: 0, timer: null, turn: 0, active: false, times: null, newsAt: null, textsAt: null, closed: null };
@@ -1022,9 +1023,17 @@ function progressOf(job, times) {
   const steps = job?.steps || [];
   const step = (k) => steps.find((x) => x.name === STEP[k]) || {};
   const news = step("news"), texts = step("texts");
-  // lukte het online zetten pas bij de tweede poging, dan telt die (zie "(opnieuw)" in update.yml)
-  const retry = (k) => steps.find((x) => x.name === `${STEP[k]} (opnieuw)` && x.status === "completed" && x.conclusion === "success");
-  const newsLive = retry("newsLive") || step("newsLive"), textsLive = retry("textsLive") || step("textsLive");
+  // Online zetten heeft tot drie pogingen (zie RETRIES en update.yml): de laatste poging die liep, telt.
+  // GitHub meldt een mislukte poging met continue-on-error als "success"; pas klaar als de volgende poging overgeslagen wordt.
+  const live = (k) => {
+    const tries = RETRIES.map((s) => steps.find((x) => x.name === STEP[k] + s)).filter(Boolean);
+    const ran = tries.filter((x) => x.started_at);
+    const cur = ran[ran.length - 1] || tries[0] || {};
+    const next = tries[tries.indexOf(cur) + 1];
+    const waiting = cur.started_at && next && next.conclusion !== "skipped" && job?.status !== "completed";
+    return waiting ? { ...cur, status: "in_progress", completed_at: null, conclusion: null } : cur;
+  };
+  const newsLive = live("newsLive"), textsLive = live("textsLive");
   const ended = (x) => (x.status === "completed" ? x.completed_at || true : null);
   const skipped = textsLive.conclusion === "skipped"; // niets meer te vertalen: de vertaalde versie werd niet opnieuw online gezet
   return {

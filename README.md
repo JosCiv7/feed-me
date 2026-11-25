@@ -46,8 +46,12 @@ bij één aanvraag per halfuur. Daarom start de app zelf een update als je ze op
 starten met een aparte sleutel; daarvoor is in november 2026 bewust niet gekozen, omdat die sleutel dan bij een
 derde dienst staat.
 
-Mislukt het online zetten (GitHub vindt soms het net geüploade pakket niet), dan probeert de workflow het na 20 seconden
-opnieuw. Crasht het ophaalprogramma, dan start het nog één keer. De pakketversies voor GitHub staan vast in
+Het online zetten mislukt soms door GitHub zelf: de lijst met pakketten loopt enkele seconden achter op de upload
+("No artifacts named ... were found"), of GitHub geeft een serverfout (500). Daarom wacht de workflow 15 seconden na de
+upload, en probeert hij bij een fout **hetzelfde** pakket nog twee keer (na 45 seconden en na 2 minuten). Een nieuw pakket
+uploaden helpt niet: dat is weer te vers. Lukken de vertalingen ook na drie pogingen niet, dan staat het nieuws wel online,
+geeft de workflow enkel een waarschuwing (geen foutmail) en zet de volgende update de vertalingen mee online.
+Crasht het ophaalprogramma, dan start het nog één keer. De pakketversies voor GitHub staan vast in
 `requirements.lock`.
 
 ## Starten op je pc

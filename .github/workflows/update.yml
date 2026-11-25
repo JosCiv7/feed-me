@@ -70,25 +70,33 @@ jobs:
         with:
           name: pages-stap1
           path: app
+      # De lijst met pakketten bij GitHub loopt soms enkele seconden achter op de upload ("No artifacts named ... were
+      # found"), en soms geeft GitHub een serverfout (500). Daarom: even wachten, en bij een fout HETZELFDE pakket
+      # later opnieuw proberen (een nieuw pakket uploaden zou weer te vers zijn).
+      - run: sleep 15
       - name: Nieuws online zetten
         id: live1
         continue-on-error: true
         uses: actions/deploy-pages@v4
         with:
           artifact_name: pages-stap1
-      # GitHub vindt het net geüploade pakket soms niet ("No artifacts named ... were found"): even wachten en opnieuw
       - if: steps.live1.outcome == 'failure'
-        run: sleep 20
-      - if: steps.live1.outcome == 'failure'
-        uses: actions/upload-pages-artifact@v3
-        with:
-          name: pages-stap1-opnieuw
-          path: app
+        run: sleep 45
       - name: Nieuws online zetten (opnieuw)
+        id: live1b
         if: steps.live1.outcome == 'failure'
+        continue-on-error: true
         uses: actions/deploy-pages@v4
         with:
-          artifact_name: pages-stap1-opnieuw
+          artifact_name: pages-stap1
+      - if: steps.live1b.outcome == 'failure'
+        run: sleep 120
+      - name: Nieuws online zetten (laatste poging)
+        id: live1c
+        if: steps.live1b.outcome == 'failure'
+        uses: actions/deploy-pages@v4
+        with:
+          artifact_name: pages-stap1
 
       # Stap 2: de volledige artikels vertalen en opnieuw online zetten (doet niets als alles al vertaald was)
       - name: Artikels vertalen
@@ -100,30 +108,45 @@ jobs:
           fi
         env:
           FEEDME_KEY: ${{ secrets.FEEDME_KEY }}
-      - if: steps.texts.outputs.again == 'true'
-        uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v3
+        if: steps.texts.outputs.again == 'true'
         with:
           name: pages-stap2
           path: app
-      - name: Vertalingen online zetten
+      # De lijst met pakketten bij GitHub loopt soms enkele seconden achter op de upload ("No artifacts named ... were
+      # found"), en soms geeft GitHub een serverfout (500). Daarom: even wachten, en bij een fout HETZELFDE pakket
+      # later opnieuw proberen (een nieuw pakket uploaden zou weer te vers zijn).
+      - run: sleep 15
         if: steps.texts.outputs.again == 'true'
+      - name: Vertalingen online zetten
         id: deploy
         continue-on-error: true
+        if: steps.texts.outputs.again == 'true'
         uses: actions/deploy-pages@v4
         with:
           artifact_name: pages-stap2
       - if: steps.deploy.outcome == 'failure'
-        run: sleep 20
-      - if: steps.deploy.outcome == 'failure'
-        uses: actions/upload-pages-artifact@v3
-        with:
-          name: pages-stap2-opnieuw
-          path: app
+        run: sleep 45
       - name: Vertalingen online zetten (opnieuw)
+        id: deployb
         if: steps.deploy.outcome == 'failure'
+        continue-on-error: true
         uses: actions/deploy-pages@v4
         with:
-          artifact_name: pages-stap2-opnieuw
+          artifact_name: pages-stap2
+      - if: steps.deployb.outcome == 'failure'
+        run: sleep 120
+      - name: Vertalingen online zetten (laatste poging)
+        id: deployc
+        if: steps.deployb.outcome == 'failure'
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+        with:
+          artifact_name: pages-stap2
+      # Lukt ook de laatste poging voor de vertalingen niet, dan staat het nieuws wel online en zet de volgende update
+      # de vertalingen mee online: een waarschuwing, geen mislukte update (en dus geen foutmail).
+      - if: steps.deployc.outcome == 'failure'
+        run: echo "::warning::Vertalingen niet online gezet (GitHub-storing); de volgende update zet ze mee online"
 
       # GitHub zet geplande taken stil na 60 dagen zonder commits; dit houdt de app levend
       - name: Keepalive

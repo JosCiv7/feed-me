@@ -55,7 +55,9 @@
 }
 
 * { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; }
+/* de pagina wordt nooit breder dan het scherm, wat er ook in staat (op Android bepaalt html de breedte, niet body) */
+html { -webkit-text-size-adjust: 100%; overflow-x: clip; max-width: 100%; }
+img, svg, video { max-width: 100%; }
 body {
   margin: 0;
   background: var(--bg);
@@ -77,9 +79,13 @@ button { font: inherit; color: inherit; }
   padding: calc(env(safe-area-inset-top) + 8px) 12px 8px 16px;
   background: var(--brand); color: var(--brand-ink);
 }
-.brand { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 21px; letter-spacing: -0.01em; }
+.brand { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 21px; letter-spacing: -0.01em; flex: none; white-space: nowrap; }
+.logo { flex: none; }
 .logo { width: 26px; height: 26px; }
-.top-actions { display: flex; align-items: center; gap: 4px; }
+.top-actions { display: flex; align-items: center; gap: 4px; min-width: 0; margin-left: 8px; }
+.top-actions .icon-btn { flex: none; }
+/* bij grote letters (lettergrootte van de gsm) krimpt deze knop, niet de naam Feed Me */
+.install { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .install {
   border: 0; border-radius: 999px; padding: 6px 12px; cursor: pointer; white-space: nowrap;
   background: var(--brand-ink); color: #b93417; font-size: 13.5px; font-weight: 800;
